@@ -45,7 +45,9 @@ def test_variant(device, variant, results, logs):
     app = ROOT / "Build" / f"DerivedData-{variant}-Simulator" / "Build" / "Products" / "Release-iphonesimulator" / (product + ".app")
     bundle_id = plistlib.loads((app / "Info.plist").read_bytes())["CFBundleIdentifier"]
     # First prove the release app starts without Xcode's debugger/test harness.
-    logged(["xcrun", "simctl", "install", device["udid"], str(app)], logs / (name + "-install.log"))
+    # The runner's first install also initializes mobile installation services;
+    # observed cold installs take about two minutes even after bootstatus.
+    logged(["xcrun", "simctl", "install", device["udid"], str(app)], logs / (name + "-install.log"), timeout=240)
     logged(["xcrun", "simctl", "launch", device["udid"], bundle_id], logs / (name + "-launch.log"))
     time.sleep(3)
     logged(["xcrun", "simctl", "io", device["udid"], "screenshot", str(screenshots / "Release-launch.png")], logs / (name + "-screenshot.log"))
