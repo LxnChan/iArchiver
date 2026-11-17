@@ -63,6 +63,14 @@ def main():
                 failures.append(name + " (10 minute timeout)")
             finally:
                 subprocess.run(["xcrun", "simctl", "shutdown", device["udid"]], capture_output=True)
+                bundle = results / (name + ".xcresult")
+                if bundle.exists():
+                    screenshots = ROOT / "Build" / "Screenshots" / name
+                    screenshots.mkdir(parents=True, exist_ok=True)
+                    exported = subprocess.run(["xcrun", "xcresulttool", "export", "attachments",
+                        "--path", str(bundle), "--output-path", str(screenshots)], capture_output=True, text=True)
+                    if exported.returncode:
+                        print(f"Screenshot export unavailable; attachments remain in {bundle}: {exported.stderr[-1000:]}", flush=True)
     if failures:
         raise RuntimeError("Simulator UI checks failed: " + ", ".join(failures))
     print("PASS: both variants passed XCUITest on iPhone, iPad and iPhone Duo.", flush=True)

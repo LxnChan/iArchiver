@@ -20,7 +20,7 @@ def main():
         candidates = [path / "Contents" / "Developer" for path in pathlib.Path("/Applications").glob("Xcode*.app")]
     available = []
     inventory = []
-    for path in candidates:
+    for path in sorted({candidate.resolve() for candidate in candidates}):
         if not explicit and "beta" in str(path).lower():
             continue
         env = dict(os.environ, DEVELOPER_DIR=str(path))

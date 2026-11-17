@@ -106,10 +106,10 @@ def generate():
     tree = {"archiveVersion": 1, "classes": {}, "objectVersion": 56, "objects": objects, "rootObject": project}
     project_dir = ROOT / "iArchiver.xcodeproj"
     project_dir.mkdir(exist_ok=True)
-    (project_dir / "project.pbxproj").write_text("// !$*UTF8*$!\n" + serialize(tree) + "\n", encoding="utf-8")
+    (project_dir / "project.pbxproj").write_text("// !$*UTF8*$!\n" + serialize(tree) + "\n", encoding="utf-8", newline="\n")
     workspace = project_dir / "project.xcworkspace"
     workspace.mkdir(exist_ok=True)
-    (workspace / "contents.xcworkspacedata").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<Workspace version="1.0"><FileRef location="self:"></FileRef></Workspace>\n')
+    (workspace / "contents.xcworkspacedata").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<Workspace version="1.0"><FileRef location="self:"></FileRef></Workspace>\n', encoding="utf-8", newline="\n")
     schemes = project_dir / "xcshareddata" / "xcschemes"
     schemes.mkdir(parents=True, exist_ok=True)
     for index, (name, product) in enumerate([("iArchiver-AppStore", "iArchiver"), ("iArchiver-Sideload", "iArchiver Sideload")]):
@@ -129,7 +129,7 @@ def generate():
         ET.SubElement(scheme, "AnalyzeAction", buildConfiguration="Debug")
         ET.SubElement(scheme, "ArchiveAction", buildConfiguration="Release", revealArchiveInOrganizer="YES")
         ET.indent(scheme)
-        ET.ElementTree(scheme).write(schemes / (name + ".xcscheme"), encoding="utf-8", xml_declaration=True)
+        (schemes / (name + ".xcscheme")).write_bytes(ET.tostring(scheme, encoding="utf-8", xml_declaration=True))
     print(f"Generated two shared schemes with {len(swift_files)} Swift source files.")
 
 

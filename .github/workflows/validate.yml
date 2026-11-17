@@ -60,7 +60,7 @@ jobs:
           retention-days: 14
 
   apple:
-    name: Xcode 27.1 · iPhone, iPad, Duo
+    name: Xcode 27 · iPhone, iPad, Duo
     # macos-latest carries Xcode 26. Use the explicit Apple silicon image.
     runs-on: xcode-27
     timeout-minutes: 60
@@ -80,6 +80,7 @@ jobs:
           selected_xcode="$(python3 Scripts/apple_toolchain.py)"
           export DEVELOPER_DIR="$selected_xcode"
           echo "DEVELOPER_DIR=$selected_xcode" >> "$GITHUB_ENV"
+          echo "IARCHIVER_XCODE_PATH=$selected_xcode" >> "$GITHUB_ENV"
           echo "cache-id=$(xcodebuild -version | tr '\n ' '--')" >> "$GITHUB_OUTPUT"
           {
             sw_vers

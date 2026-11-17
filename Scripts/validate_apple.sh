@@ -4,6 +4,7 @@ cd "$(dirname "$0")/.."
 # An export assignment masks command-substitution errors. Select separately.
 selected_xcode="$(python3 Scripts/apple_toolchain.py)"
 export DEVELOPER_DIR="$selected_xcode"
+export IARCHIVER_XCODE_PATH="$selected_xcode"
 mkdir -p Build/logs Build/TestResults
 
 logged() {

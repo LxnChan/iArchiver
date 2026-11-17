@@ -19,7 +19,7 @@
 - 不能只看可见按钮判断许可归属。主机测试验证真实能力与 UnRAR 符号差异；Apple 构建后还需检查最终设备产物及链接内容。
 - 不在 iOS 启动桌面压缩 CLI、不下载可执行组件、不调用解压出的程序、不链接未选择的外部格式插件。
 - 禁用 libarchive 的外部过滤器替代路径；桥接层只注册有限格式与内置过滤器。旧 7z 适配未注册，普通 7z 走 SDK。
-- 对 libarchive 应用少量内存预算修改，记录在 `Scripts/patch_dependencies.py`。修改带标记、检查唯一上游文本并可重复执行；补丁指纹进入构建缓存键。
+- 对 libarchive 应用少量内存预算及 ZIP Unicode Path 校验修改，记录在 `Scripts/patch_dependencies.py`。CRC 使用未转换的原始文件名字节，并检查扩展版本；修改带标记、检查唯一上游文本并可重复执行，补丁指纹进入构建缓存键。
 - 保留 SDK 的必要静态注册对象，因此使用 force-load；App 的 dead stripping 同时启用。实际 iOS 体积仍需测量。
 
 ## LZMA SDK Vendor 包
