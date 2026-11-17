@@ -28,9 +28,11 @@ final class BrowserUITests: XCTestCase {
         app.buttons["moreActions"].tap()
         app.buttons["openSettings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-        let expected = (Bundle(for: Self.self).bundleIdentifier ?? "").contains(".sideload.") ? "Sideload" : "App Store"
-        XCTAssertTrue(app.staticTexts[expected].exists, "Settings must show the compiled edition")
         attachScreenshot("Settings")
+        let expected = (Bundle(for: Self.self).bundleIdentifier ?? "").contains(".sideload.") ? "Sideload" : "App Store"
+        let edition = app.descendants(matching: .any)["buildEdition"].firstMatch
+        XCTAssertTrue(edition.waitForExistence(timeout: 5))
+        XCTAssertEqual(edition.value as? String, expected, "Settings must expose the compiled edition")
         app.buttons["Done"].tap()
         XCTAssertTrue(app.buttons["moreActions"].waitForExistence(timeout: 5))
     }

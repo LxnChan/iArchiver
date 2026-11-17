@@ -13,6 +13,10 @@ struct SettingsView: View {
                 Section("settings.application") {
                     LabeledContent("settings.version", value: "0.1.0 (1)")
                     LabeledContent("settings.edition", value: capabilities.isSideload ? "Sideload" : "App Store")
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text("settings.edition"))
+                        .accessibilityValue(Text(verbatim: capabilities.isSideload ? "Sideload" : "App Store"))
+                        .accessibilityIdentifier("buildEdition")
                     LabeledContent("settings.engine", value: BuildCapabilities.engineVersion)
                 }
                 Section("settings.formats") {

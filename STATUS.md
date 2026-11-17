@@ -1,6 +1,6 @@
 # 实施状态与验证边界
 
-记录日期：2026-11-17。源码编辑在 Windows，**编译与测试统一由 GitHub Actions 执行**。Apple 作业使用 `xcode-27` 的 Apple silicon 主机，实际选择了 Xcode 27.2 / iOS 27.2 SDK；最低部署仍为 iOS 18。尚无已签名发行包，尚未提交 App Store。
+记录日期：2026-11-17。源码编辑在 Windows，**编译与测试统一由 GitHub Actions 执行**。Apple 作业使用 `xcode-27` 的 Apple silicon 主机，现固定 Xcode 27.1 / iOS 27.1 SDK；此前也通过了 Xcode 27.2 的核心测试和四个 App 构建。最低部署仍为 iOS 18。尚无已签名发行包，尚未提交 App Store。
 
 ## 已有产物
 
@@ -19,6 +19,8 @@
 | Actions macOS 回归 | 两版原生引擎编译及 21 项真实 C ABI 集成测试通过；ZIP Unicode 扩展 CRC 按原始名字节校验 |
 | Apple 静态库 | arm64 iOS 与 arm64 Simulator 的两版 XCFramework 编译成功，依赖显式链接到锁定的静态库 |
 | Swift 核心 XCTest | 26 项通过：11 项归档操作、9 项提取安全策略、6 项布局几何 |
+| iOS Release App | App Store / Sideload 各自的 arm64 真机与模拟器 App，四个构建均成功 |
+| 最终设备产物检查 | 真实可执行文件的 UnRAR 符号隔离、按版许可、隐私清单、iPhone / iPad 设备族、iOS 18 最低系统通过 |
 | 原生 C ABI 集成测试 | 21 项通过，调用实际锁定的依赖实现 |
 | 创建后读回 | ZIP、7z、TAR、TAR.GZ、GZ；侧载 ISO |
 | 标准库互操作 | Python zipfile / tarfile / gzip 能读取普通输出；ZIP 中文/emoji 名称带有效 UTF-8 标志 |
@@ -33,11 +35,11 @@
 
 原生 Windows Release DLL 基线：商店约 1.31 MiB、侧载约 1.88 MiB。**这不是 iOS 下载体积或安装体积**；实际值须在 Apple 构建与 App Thinning 后测量。
 
-Swift 核心代码现已通过 Apple 编译器和实际 XCTest。原生操作在同步工作线程范围使用 UTF-8 locale，避免 Swift 线程初始 C/ASCII locale 导致名称损坏；文件指纹重新查询文件系统，避免复用 URL 缓存属性。App UI、最终设备产物与模拟器结果以对应 Actions 阶段的真实结果为准。
+Swift 核心代码与两版 App 现已通过 Apple 编译器和链接检查。原生操作在同步工作线程范围使用 UTF-8 locale，避免 Swift 线程初始 C/ASCII locale 导致名称损坏；文件指纹重新查询文件系统，避免复用 URL 缓存属性。模拟器运行结果以对应 Actions 阶段的真实结果为准，构建成功不代表界面验收通过。
 
 ## 发布前仍需完成
 
-1. 运行 `bash Scripts/validate_apple.sh`；修正所有 Swift 类型检查、公共 API 使用、Apple C/C++ 编译及链接问题。
+1. 完成 Actions 的模拟器运行验收，保存六组 XCUITest、启动截图及完整日志；不能用编译成功代替运行结果。
 2. 验证 iOS 18 / 26 / 27，iPad 分屏、Duo 展开/闭合/桌面姿态、摄像头区域、旋转与 Dynamic Type。
 3. 实测 BGContinuedProcessingTask 的注册、授予、进度、用户取消、锁屏、系统到期及拒绝时的有限后台回退。
 4. 实测 iCloud / 第三方 File Provider 的下载、目录导入、协调、重名替换、磁盘满、授权撤回、断连、取消及清理。
@@ -57,6 +59,6 @@ Swift 核心代码现已通过 Apple 编译器和实际 XCTest。原生操作在
 - 现有重打包会生成并校验新副本；尚无原地修改压缩包、追加文件到原包、压缩包内批量改名功能。
 - 当前为“系统选择器导入到应用副本”的模式，不是完整 File Provider 文件管理器；没有独立 Share Extension 或跨应用拖放导入实现。
 - 任务队列与历史保存在内存，进程被终止后不自动恢复任务；临时 UUID 目录过期后清理。
-- 两列的数学几何已有测试源码，真实设备交互与可访问性仍待验收。尚无截图或 UI 自动化运行结果。
+- 两列的数学几何已通过 XCTest，真实设备交互与可访问性仍待验收。CI 界面自动化范围与诊断入口见 `Docs/CI.md`。
 
 上述项目在 [PLAN.md](PLAN.md) 中仍作为发布目标保留，不能因当前源代码已创建就标为验收完成。
