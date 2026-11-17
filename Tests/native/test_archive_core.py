@@ -15,6 +15,7 @@ import zipfile
 import lzma
 import tarfile
 import gzip
+import unicodedata
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -277,7 +278,9 @@ class CoreTests(unittest.TestCase):
                 with zipfile.ZipFile(destination, "w") as archive:
                     archive.writestr(RawNameZipInfo(name, codec), b"legacy filename")
                 entries = self.store.read([destination], charset=charset)
-                self.assertIn(name, entries)
+                # Darwin libarchive returns decomposed Unicode. Canonically
+                # equivalent names must pass without ignoring mojibake.
+                self.assertIn(name, {unicodedata.normalize("NFC", path) for path in entries})
 
     def test_store_rejects_iso_creation_but_sideload_roundtrips_it(self):
         destination = self.root / "image.iso"

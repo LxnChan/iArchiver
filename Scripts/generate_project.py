@@ -33,6 +33,7 @@ def generate():
         return add("file:" + path, "PBXFileReference", lastKnownFileType=filetype, path=path, sourceTree="<group>")
     swift_files = sorted(path.relative_to(ROOT).as_posix() for path in (ROOT / "Sources").rglob("*.swift"))
     swift_refs = [reference(path, "sourcecode.swift") for path in swift_files]
+    ui_ref = reference("Tests/UITests/BrowserUITests.swift", "sourcecode.swift")
     asset_ref = reference("Resources/Assets.xcassets", "folder.assetcatalog")
     privacy_ref = reference("Resources/PrivacyInfo.xcprivacy", "text.xml")
     notice_ref = reference("Resources/ThirdPartyNotices.txt", "text")
@@ -45,7 +46,7 @@ def generate():
     info_ref = reference("Config/Info.plist", "text.plist.xml")
     base_config = reference("Config/Base.xcconfig", "text.xcconfig")
     configs = {name: reference(f"Config/{name}.xcconfig", "text.xcconfig") for name in ["AppStore", "Sideload"]}
-    target_ids, products, frameworks = [], [], []
+    target_ids, ui_targets, products, frameworks = [], [], [], []
     for target_name, edition, product in [("iArchiver-AppStore", "AppStore", "iArchiver"), ("iArchiver-Sideload", "Sideload", "iArchiver Sideload")]:
         variant = edition.lower()
         product_ref = add("product:" + edition, "PBXFileReference", explicitFileType="wrapper.application", includeInIndex=0, path=product + ".app", sourceTree="BUILT_PRODUCTS_DIR")
@@ -68,17 +69,40 @@ def generate():
         configuration_list = add("config-list:" + edition, "XCConfigurationList", buildConfigurations=configurations, defaultConfigurationIsVisible=0, defaultConfigurationName="Release")
         target = add("target:" + edition, "PBXNativeTarget", buildConfigurationList=configuration_list, buildPhases=[sources, links, resource_phase], buildRules=[], dependencies=[], name=target_name, productName=product, productReference=product_ref, productType="com.apple.product-type.application")
         target_ids.append(target)
+        ui_name = target_name + "UITests"
+        ui_product = add("ui-product:" + edition, "PBXFileReference", explicitFileType="wrapper.cfbundle", includeInIndex=0, path=ui_name + ".xctest", sourceTree="BUILT_PRODUCTS_DIR")
+        products.append(ui_product)
+        ui_source = add("ui-source:" + edition, "PBXBuildFile", fileRef=ui_ref)
+        ui_sources = add("ui-sources:" + edition, "PBXSourcesBuildPhase", buildActionMask=2147483647, files=[ui_source], runOnlyForDeploymentPostprocessing=0)
+        ui_links = add("ui-links:" + edition, "PBXFrameworksBuildPhase", buildActionMask=2147483647, files=[], runOnlyForDeploymentPostprocessing=0)
+        ui_configs = []
+        for name in ["Debug", "Release"]:
+            ui_settings = {"PRODUCT_NAME": ui_name, "PRODUCT_BUNDLE_IDENTIFIER": f"com.example.iarchiver.{variant}.uitests",
+                "GENERATE_INFOPLIST_FILE": "YES", "SDKROOT": "iphoneos", "IPHONEOS_DEPLOYMENT_TARGET": "18.0",
+                "SWIFT_VERSION": "5.0", "TARGETED_DEVICE_FAMILY": "1,2", "ARCHS": "arm64",
+                "TEST_TARGET_NAME": target_name, "CODE_SIGN_STYLE": "Automatic",
+                "SWIFT_OPTIMIZATION_LEVEL": "-Onone", "ENABLE_TESTABILITY": "YES"}
+            ui_configs.append(add(f"ui-config:{edition}:{name}", "XCBuildConfiguration", buildSettings=ui_settings, name=name))
+        ui_list = add("ui-config-list:" + edition, "XCConfigurationList", buildConfigurations=ui_configs, defaultConfigurationIsVisible=0, defaultConfigurationName="Debug")
+        proxy = add("ui-proxy:" + edition, "PBXContainerItemProxy", containerPortal=identifier("project"), proxyType=1, remoteGlobalIDString=target, remoteInfo=target_name)
+        dependency = add("ui-dependency:" + edition, "PBXTargetDependency", target=target, targetProxy=proxy)
+        ui_targets.append(add("ui-target:" + edition, "PBXNativeTarget", buildConfigurationList=ui_list,
+            buildPhases=[ui_sources, ui_links], buildRules=[], dependencies=[dependency], name=ui_name,
+            productName=ui_name, productReference=ui_product, productType="com.apple.product-type.bundle.ui-testing"))
     sources_group = add("group:sources", "PBXGroup", children=swift_refs, name="Sources", sourceTree="<group>")
     resource_group = add("group:resources", "PBXGroup", children=resources + [unrar_ref], name="Resources", sourceTree="<group>")
     config_group = add("group:config", "PBXGroup", children=[info_ref, base_config] + list(configs.values()), name="Configuration", sourceTree="<group>")
     framework_group = add("group:frameworks", "PBXGroup", children=frameworks, name="Native Libraries", sourceTree="<group>")
     product_group = add("group:products", "PBXGroup", children=products, name="Products", sourceTree="<group>")
-    main = add("group:main", "PBXGroup", children=[sources_group, resource_group, config_group, framework_group, product_group], sourceTree="<group>")
+    test_group = add("group:tests", "PBXGroup", children=[ui_ref], name="UI Tests", sourceTree="<group>")
+    main = add("group:main", "PBXGroup", children=[sources_group, resource_group, config_group, framework_group, product_group, test_group], sourceTree="<group>")
     project_configurations = []
     for name in ["Debug", "Release"]:
         project_configurations.append(add("project-config:" + name, "XCBuildConfiguration", buildSettings={"CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED": "YES", "ENABLE_STRICT_OBJC_MSGSEND": "YES", "GCC_WARN_64_TO_32_BIT_CONVERSION": "YES", "SWIFT_COMPILATION_MODE": "singlefile" if name == "Debug" else "wholemodule", "ENABLE_TESTABILITY": "YES" if name == "Debug" else "NO"}, name=name))
     project_list = add("project-config-list", "XCConfigurationList", buildConfigurations=project_configurations, defaultConfigurationIsVisible=0, defaultConfigurationName="Release")
-    project = add("project", "PBXProject", attributes={"BuildIndependentTargetsInParallel": "YES", "LastUpgradeCheck": "2700", "TargetAttributes": {target: {"CreatedOnToolsVersion": "27.0", "ProvisioningStyle": "Automatic"} for target in target_ids}}, buildConfigurationList=project_list, compatibilityVersion="Xcode 14.0", developmentRegion="en", hasScannedForEncodings=0, knownRegions=["en", "zh-Hans", "Base"], mainGroup=main, productRefGroup=product_group, projectDirPath="", projectRoot="", targets=target_ids)
+    attributes = {target: {"CreatedOnToolsVersion": "27.0", "ProvisioningStyle": "Automatic"} for target in target_ids}
+    attributes.update({test: {"CreatedOnToolsVersion": "27.0", "TestTargetID": target} for test, target in zip(ui_targets, target_ids)})
+    project = add("project", "PBXProject", attributes={"BuildIndependentTargetsInParallel": "YES", "LastUpgradeCheck": "2700", "TargetAttributes": attributes}, buildConfigurationList=project_list, compatibilityVersion="Xcode 14.0", developmentRegion="en", hasScannedForEncodings=0, knownRegions=["en", "zh-Hans", "Base"], mainGroup=main, productRefGroup=product_group, projectDirPath="", projectRoot="", targets=target_ids + ui_targets)
     tree = {"archiveVersion": 1, "classes": {}, "objectVersion": 56, "objects": objects, "rootObject": project}
     project_dir = ROOT / "iArchiver.xcodeproj"
     project_dir.mkdir(exist_ok=True)
@@ -95,7 +119,9 @@ def generate():
         action = ET.SubElement(scheme, "BuildAction", parallelizeBuildables="YES", buildImplicitDependencies="YES")
         entries = ET.SubElement(action, "BuildActionEntries")
         buildable(ET.SubElement(entries, "BuildActionEntry", buildForTesting="YES", buildForRunning="YES", buildForProfiling="YES", buildForArchiving="YES", buildForAnalyzing="YES"))
-        ET.SubElement(scheme, "TestAction", buildConfiguration="Debug", selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB", selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB", shouldUseLaunchSchemeArgsEnv="YES")
+        tests = ET.SubElement(scheme, "TestAction", buildConfiguration="Debug", selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB", selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB", shouldUseLaunchSchemeArgsEnv="YES")
+        testable = ET.SubElement(ET.SubElement(tests, "Testables"), "TestableReference", skipped="NO", parallelizable="NO")
+        ET.SubElement(testable, "BuildableReference", BuildableIdentifier="primary", BlueprintIdentifier=ui_targets[index], BuildableName=name + "UITests.xctest", BlueprintName=name + "UITests", ReferencedContainer="container:iArchiver.xcodeproj")
         launch = ET.SubElement(scheme, "LaunchAction", buildConfiguration="Debug", selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB", selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB", launchStyle="0", useCustomWorkingDirectory="NO", ignoresPersistentStateOnLaunch="NO", debugDocumentVersioning="YES", debugServiceExtension="internal", allowLocationSimulation="YES")
         buildable(ET.SubElement(launch, "BuildableProductRunnable", runnableDebuggingMode="0"))
         profile = ET.SubElement(scheme, "ProfileAction", buildConfiguration="Release", shouldUseLaunchSchemeArgsEnv="YES", savedToolIdentifier="", useCustomWorkingDirectory="NO", debugDocumentVersioning="YES")

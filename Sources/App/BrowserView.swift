@@ -19,6 +19,8 @@ struct BrowserView: View {
                             Color.secondary.opacity(0.15)
                             if let preview = frames.preview {
                                 PreviewPane(node: model.focusedNode, url: model.previewURL, loading: model.isPreparingPreview)
+                                    .accessibilityElement(children: .contain)
+                                    .accessibilityIdentifier("previewPane")
                                     .background(.background.secondary)
                                     .frame(width: preview.width, height: preview.height)
                                     .position(x: preview.midX, y: preview.midY)
@@ -173,7 +175,9 @@ struct BrowserView: View {
                 }
                 Toggle("action.hidden", isOn: $model.showHidden)
                 Button("action.settings", systemImage: "gearshape") { model.showSettings = true }
+                    .accessibilityIdentifier("openSettings")
             } label: { Label("action.more", systemImage: "ellipsis.circle") }
+                .accessibilityIdentifier("moreActions")
                 .disabled(model.isBusy)
         }
     }

@@ -1,46 +1,151 @@
 name: Validate
+
 on:
   push:
   pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: '1'
+
 jobs:
   native-windows:
+    name: Windows native regression
     runs-on: windows-2022
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+          cache: pip
+          cache-dependency-path: Scripts/requirements-dev.txt
       - run: python -m pip install -r Scripts/requirements-dev.txt
-      - run: python -u Scripts/build_native.py
-      - run: python Scripts/generate_resources.py
-      - run: python Scripts/generate_project.py
-      - run: python Scripts/validate_repository.py
-      - run: python Tests/native/test_archive_core.py
-      - uses: actions/upload-artifact@v4
-        if: failure()
+      - uses: actions/cache/restore@v4
+        id: native-cache
         with:
-          name: windows-build-logs
-          path: Build/logs
-  apple:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+          path: |
+            .deps
+            Build/native
+          key: native-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Dependencies.lock.json', 'Scripts/build_native.py', 'Scripts/patch_dependencies.py', 'Scripts/bootstrap.py', 'Native/**') }}
+      - name: Build both native variants
+        id: native
+        run: python Scripts/build_native.py
+      - uses: actions/cache/save@v4
+        if: steps.native.outcome == 'success' && steps.native-cache.outputs.cache-hit != 'true'
         with:
-          python-version: '3.13'
-      - run: python3 -m pip install -r Scripts/requirements-dev.txt
-      - run: python3 Scripts/bootstrap.py
-      - run: python3 Scripts/generate_resources.py
-      - run: python3 Scripts/generate_project.py
-      - run: python3 Scripts/validate_repository.py
-      # Fails explicitly if the hosted image lacks iOS 27.1. Use a Mac runner
-      # with the required public Xcode SDK; do not silently skip Apple checks.
-      - run: bash Scripts/validate_apple.sh
+          path: |
+            .deps
+            Build/native
+          key: ${{ steps.native-cache.outputs.cache-primary-key }}
+      - name: Generate and validate project resources
+        run: |
+          python Scripts/generate_resources.py
+          python Scripts/generate_project.py
+          python Scripts/validate_repository.py
+      - name: Run native integration tests
+        run: python Tests/native/test_archive_core.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: apple-build-logs
+          name: windows-build-logs
           path: Build/logs
+          retention-days: 14
+
+  apple:
+    name: Xcode 27.1 · iPhone, iPad, Duo
+    # macos-latest carries Xcode 26. Use the explicit Apple silicon image.
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: Scripts/requirements-dev.txt
+      - run: python3 -m pip install -r Scripts/requirements-dev.txt
+      - name: Select and record required Apple toolchain
+        id: toolchain
+        shell: bash
+        run: |
+          mkdir -p Build/logs Build/TestResults
+          selected_xcode="$(python3 Scripts/apple_toolchain.py)"
+          export DEVELOPER_DIR="$selected_xcode"
+          echo "DEVELOPER_DIR=$selected_xcode" >> "$GITHUB_ENV"
+          echo "cache-id=$(xcodebuild -version | tr '\n ' '--')" >> "$GITHUB_OUTPUT"
+          {
+            sw_vers
+            uname -m
+            xcodebuild -version
+            xcodebuild -showsdks
+            xcrun simctl list devices available
+          } | tee Build/logs/toolchain.log
+          {
+            echo '### Apple toolchain'
+            echo '```text'
+            xcodebuild -version
+            xcrun --sdk iphoneos --show-sdk-version
+            echo '```'
+            echo 'Unsigned validation only. Installation signing and App Store submission are separate release gates.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/cache/restore@v4
+        id: native-cache
+        with:
+          path: |
+            .deps
+            Build/native
+          key: native-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.toolchain.outputs.cache-id }}-${{ hashFiles('Dependencies.lock.json', 'Scripts/build_native.py', 'Scripts/patch_dependencies.py', 'Scripts/bootstrap.py', 'Native/**') }}
+      - name: Generate and validate project resources
+        run: |
+          python3 Scripts/bootstrap.py
+          python3 Scripts/generate_resources.py
+          python3 Scripts/generate_project.py
+          python3 Scripts/validate_repository.py
+      - name: Build macOS native engines
+        run: bash Scripts/validate_apple.sh host-build
+      - name: Build iOS and simulator XCFrameworks
+        id: native
+        run: bash Scripts/validate_apple.sh frameworks
+      - uses: actions/cache/save@v4
+        if: steps.native.outcome == 'success' && steps.native-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            .deps
+            Build/native
+          key: ${{ steps.native-cache.outputs.cache-primary-key }}
+      - name: Run native archive integration tests on macOS
+        run: bash Scripts/validate_apple.sh native-tests
+      - name: Run Swift core XCTest suite
+        run: bash Scripts/validate_apple.sh swift-tests
+      - name: Build both app variants for simulator and device
+        run: bash Scripts/validate_apple.sh apps
+      - name: Verify compiled variant boundaries and privacy resources
+        run: bash Scripts/validate_apple.sh bundles
+      - name: Run simulator UI checks on iPhone, iPad and Duo
+        run: python3 Scripts/test_simulators.py
+      - name: Package unsigned build products
+        run: python3 Scripts/package_apple_artifacts.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-diagnostics-${{ github.run_attempt }}
+          path: |
+            Build/logs
+            Build/TestResults
+            Build/Screenshots
+          retention-days: 14
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-apple-builds
+          path: Build/Artifacts
+          retention-days: 14
+          if-no-files-found: error

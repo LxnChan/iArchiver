@@ -48,6 +48,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("action.settings")
+            .accessibilityIdentifier("settingsView")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("action.done") { dismiss() } } }
         }
     }
