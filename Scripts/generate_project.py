@@ -81,7 +81,7 @@ def generate():
                 "GENERATE_INFOPLIST_FILE": "YES", "SDKROOT": "iphoneos", "IPHONEOS_DEPLOYMENT_TARGET": "18.0",
                 "SWIFT_VERSION": "5.0", "TARGETED_DEVICE_FAMILY": "1,2", "ARCHS": "arm64",
                 "TEST_TARGET_NAME": target_name, "CODE_SIGN_STYLE": "Automatic",
-                "SWIFT_OPTIMIZATION_LEVEL": "-Onone", "ENABLE_TESTABILITY": "YES"}
+                "SWIFT_OPTIMIZATION_LEVEL": "-Onone", "ENABLE_TESTABILITY": "YES", "ALWAYS_SEARCH_USER_PATHS": "NO"}
             ui_configs.append(add(f"ui-config:{edition}:{name}", "XCBuildConfiguration", buildSettings=ui_settings, name=name))
         ui_list = add("ui-config-list:" + edition, "XCConfigurationList", buildConfigurations=ui_configs, defaultConfigurationIsVisible=0, defaultConfigurationName="Debug")
         proxy = add("ui-proxy:" + edition, "PBXContainerItemProxy", containerPortal=identifier("project"), proxyType=1, remoteGlobalIDString=target, remoteInfo=target_name)
@@ -119,7 +119,7 @@ def generate():
         action = ET.SubElement(scheme, "BuildAction", parallelizeBuildables="YES", buildImplicitDependencies="YES")
         entries = ET.SubElement(action, "BuildActionEntries")
         buildable(ET.SubElement(entries, "BuildActionEntry", buildForTesting="YES", buildForRunning="YES", buildForProfiling="YES", buildForArchiving="YES", buildForAnalyzing="YES"))
-        tests = ET.SubElement(scheme, "TestAction", buildConfiguration="Debug", selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB", selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB", shouldUseLaunchSchemeArgsEnv="YES")
+        tests = ET.SubElement(scheme, "TestAction", buildConfiguration="Debug", selectedDebuggerIdentifier="", selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.PosixSpawn", shouldUseLaunchSchemeArgsEnv="YES")
         testable = ET.SubElement(ET.SubElement(tests, "Testables"), "TestableReference", skipped="NO", parallelizable="NO")
         ET.SubElement(testable, "BuildableReference", BuildableIdentifier="primary", BlueprintIdentifier=ui_targets[index], BuildableName=name + "UITests.xctest", BlueprintName=name + "UITests", ReferencedContainer="container:iArchiver.xcodeproj")
         launch = ET.SubElement(scheme, "LaunchAction", buildConfiguration="Debug", selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB", selectedLauncherIdentifier="Xcode.IDEFoundation.Launcher.LLDB", launchStyle="0", useCustomWorkingDirectory="NO", ignoresPersistentStateOnLaunch="NO", debugDocumentVersioning="YES", debugServiceExtension="internal", allowLocationSimulation="YES")

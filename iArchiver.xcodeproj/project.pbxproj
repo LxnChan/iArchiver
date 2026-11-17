@@ -431,6 +431,7 @@
 				"CODE_SIGN_STYLE" = "Automatic";
 				"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
 				"ENABLE_TESTABILITY" = "YES";
+				"ALWAYS_SEARCH_USER_PATHS" = "NO";
 			};
 			"name" = "Debug";
 		};
@@ -449,6 +450,7 @@
 				"CODE_SIGN_STYLE" = "Automatic";
 				"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
 				"ENABLE_TESTABILITY" = "YES";
+				"ALWAYS_SEARCH_USER_PATHS" = "NO";
 			};
 			"name" = "Release";
 		};
@@ -730,6 +732,7 @@
 				"CODE_SIGN_STYLE" = "Automatic";
 				"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
 				"ENABLE_TESTABILITY" = "YES";
+				"ALWAYS_SEARCH_USER_PATHS" = "NO";
 			};
 			"name" = "Debug";
 		};
@@ -748,6 +751,7 @@
 				"CODE_SIGN_STYLE" = "Automatic";
 				"SWIFT_OPTIMIZATION_LEVEL" = "-Onone";
 				"ENABLE_TESTABILITY" = "YES";
+				"ALWAYS_SEARCH_USER_PATHS" = "NO";
 			};
 			"name" = "Release";
 		};
