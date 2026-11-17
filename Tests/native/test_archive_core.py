@@ -163,7 +163,7 @@ class CoreTests(unittest.TestCase):
         archive = self.root / "picker.7z"
         write_archive(archive, size=1024 * 1024)
         for bridge in [self.store, self.side]:
-            self.assertEqual(bridge.read([archive]), {ENTRY_NAME: b""})
+            self.assertEqual(bridge.read([archive]), {ENTRY_NAME: (b"", 0, 0)})
 
     def test_locked_version_and_actual_variant_capabilities(self):
         self.assertIn(b"3.8.11", self.store.lib.ia_version())
