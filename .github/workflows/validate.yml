@@ -1,0 +1,46 @@
+name: Validate
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r Scripts/requirements-dev.txt
+      - run: python -u Scripts/build_native.py
+      - run: python Scripts/generate_resources.py
+      - run: python Scripts/generate_project.py
+      - run: python Scripts/validate_repository.py
+      - run: python Tests/native/test_archive_core.py
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: windows-build-logs
+          path: Build/logs
+  apple:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python3 -m pip install -r Scripts/requirements-dev.txt
+      - run: python3 Scripts/bootstrap.py
+      - run: python3 Scripts/generate_resources.py
+      - run: python3 Scripts/generate_project.py
+      - run: python3 Scripts/validate_repository.py
+      # Fails explicitly if the hosted image lacks iOS 27.1. Use a Mac runner
+      # with the required public Xcode SDK; do not silently skip Apple checks.
+      - run: bash Scripts/validate_apple.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-build-logs
+          path: Build/logs

@@ -1,0 +1,16 @@
+.deps/
+Build/
+.build/
+.DS_Store
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.ipa
+*.xcarchive/
+*.p12
+*.mobileprovision
+Config/Local.xcconfig
+Tests/Generated/
+__pycache__/
+.venv/
+

@@ -1,0 +1,7 @@
+#include "Base.xcconfig"
+PRODUCT_NAME = iArchiver Sideload
+PRODUCT_MODULE_NAME = IArchiverSideload
+PRODUCT_BUNDLE_IDENTIFIER = $(IARCHIVER_BUNDLE_PREFIX).iarchiver.sideload
+IA_VARIANT = sideload
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) SIDELOAD
+

@@ -1,0 +1,5 @@
+module ArchiveCore [system] {
+    header "../../Native/include/ArchiveCore.h"
+    link "ArchiveCore"
+    export *
+}

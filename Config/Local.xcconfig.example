@@ -1,0 +1,4 @@
+// Copy to Local.xcconfig on your Mac. Never put a private key here.
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+IARCHIVER_BUNDLE_PREFIX = com.yourcompany
+

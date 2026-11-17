@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "dependencies": [
+    {
+      "name": "libarchive",
+      "version": "3.8.11",
+      "url": "https://github.com/libarchive/libarchive/releases/download/v3.8.11/libarchive-3.8.11.tar.gz",
+      "sha256": "900fe9fc7237c2b04f090f3c3648de8fe597525771f5035016537ce2d667d12b",
+      "directory": "libarchive-3.8.11"
+    },
+    {
+      "name": "xz",
+      "version": "5.8.4",
+      "url": "https://github.com/tukaani-project/xz/releases/download/v5.8.4/xz-5.8.4.tar.gz",
+      "sha256": "0014c7886930454fe8bd4228665b51af55eeae560ea135c9c4cd33f55b2591d9",
+      "directory": "xz-5.8.4"
+    },
+    {
+      "name": "zlib",
+      "version": "1.4",
+      "url": "https://github.com/madler/zlib/releases/download/v1.4/zlib-1.4.tar.gz",
+      "sha256": "02dd159783677a749c04adbdd02b55b8a2bcc7e054f51b76b549199a916ad584",
+      "directory": "zlib-1.4"
+    },
+    {
+      "name": "lzma-sdk",
+      "version": "26.06",
+      "url": "https://github.com/ip7z/7zip/releases/download/26.06/lzma2606.7z",
+      "upstream_sha256": "1d9da340870b12712e9068be178a4436fbad785486b62aed6e2aa88ea1e3bb65",
+      "vendor_archive": "Vendor/lzma-sdk-26.06.tar.gz",
+      "sha256": "3d91357936c34e29555ebe0783eae33f9f2765f97182f686c28243514ac25f5e",
+      "directory": "lzma-sdk-26.06"
+    },
+    {
+      "name": "unrar",
+      "version": "7.3.2",
+      "url": "https://www.rarlab.com/rar/unrarsrc-7.3.2.tar.gz",
+      "sha256": "f61a1160d6e2ebbda2ad353c8e82f62ab4312f97fde23c6c2c982d25e0014f99",
+      "directory": "unrar"
+    }
+  ]
+}
