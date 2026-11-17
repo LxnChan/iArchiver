@@ -97,7 +97,10 @@ public enum FilenameDetector {
             let extraLength = Int(header.u16(30))
             let commentLength = Int(header.u16(32))
             guard let name = try file.read(upToCount: nameLength), name.count == nameLength else { break }
-            guard let extra = try file.read(upToCount: extraLength), extra.count == extraLength else { break }
+            // FileHandle may return nil for a zero-byte read; ZIP extras are
+            // optional and an absent extra field must still yield a sample.
+            let extra = try file.read(upToCount: extraLength) ?? Data()
+            guard extra.count == extraLength else { break }
             var declared = header.u16(8) & 0x0800 != 0 ? String(data: name, encoding: .utf8) : nil
             var position = 0
             while position + 4 <= extra.count {

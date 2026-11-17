@@ -24,7 +24,9 @@ IA_NATIVE_SLICE[sdk=iphonesimulator*] = ios-arm64-simulator
 IA_NATIVE_ROOT = $(SRCROOT)/Build/Apple/ArchiveCore-$(IA_VARIANT).xcframework/$(IA_NATIVE_SLICE)
 SWIFT_INCLUDE_PATHS = $(inherited) "$(IA_NATIVE_ROOT)/Headers"
 HEADER_SEARCH_PATHS = $(inherited) "$(IA_NATIVE_ROOT)/Headers"
-OTHER_LDFLAGS = $(inherited) -liconv -lc++ -force_load "$(IA_NATIVE_ROOT)/libArchiveCoreCombined.a"
+// xcodebuild preserves the input archive name when creating each XCFramework slice.
+IA_NATIVE_LIBRARY = $(IA_NATIVE_ROOT)/$(IA_VARIANT)-$(PLATFORM_NAME).a
+OTHER_LDFLAGS = $(inherited) -liconv -lc++ -force_load "$(IA_NATIVE_LIBRARY)"
 LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks
 #include? "Local.xcconfig"
 

@@ -2,7 +2,7 @@
 
 一个以离线处理、简单界面和旧压缩包兼容为目标的原生 iOS 应用。商业模式按付费下载设计，无广告、账号、订阅或统计 SDK。
 
-**当前交付是应用源码、双版本 Xcode 工程、经过 Windows 实测的原生引擎和 Mac 验证脚本。尚未运行 Xcode，尚无已签名 IPA，也尚未达到可提交 App Store 的状态。** 详细证据和剩余门槛见 [STATUS.md](STATUS.md)。
+**编译和测试统一在 GitHub Actions 执行。** 工作流使用 Apple silicon `xcode-27` 镜像，验证双版本、设备与模拟器编译、原生引擎、Swift XCTest 以及 iPhone / iPad / Duo 界面。流程与产物说明见 [Docs/CI.md](Docs/CI.md)，实际通过范围见 [STATUS.md](STATUS.md)。尚无已签名发行包，尚未达到可提交 App Store 的状态。
 
 ## 功能
 
@@ -30,11 +30,19 @@
 
 两套构建的区别来自真实源码和链接配置。商店版不链接专用 UnRAR，不存在远程解锁或审核后开启开关。侧载也必须遵守组件许可，见 [DEPENDENCIES.md](DEPENDENCIES.md)。
 
-## 在 Mac 上构建
+## GitHub Actions 构建与测试
+
+向 main 推送、打开或更新 Pull Request，或在仓库 **Actions → Validate → Run workflow** 手动触发。功能分支通过 PR 验证，避免重复启动整套任务。无需本地 Mac；后续编译和测试都使用 Actions。工作流明确指定 `xcode-27` 并检查 iOS 27.1+ SDK，缺失时直接失败。
+
+成功运行提供 `unsigned-apple-builds` 产物：两个版本的未签名设备 IPA、arm64 模拟器 App、调试符号、原生 XCFramework 与 SHA-256 清单。`apple-build-diagnostics-*` 保存核心测试和构建日志；`apple-ui-diagnostics-*` 分机型保存 Release XCUITest 结果与运行截图。三类机型各用独立 Apple 主机，六组 UI 检查全部成功后才打包。**未签名 IPA 需自行签名，不能直接安装或上架。**
+
+资源与工程生成可在 Windows 编辑环境执行；编译、类型检查和测试结果以实际 Actions 运行记录为准。以下 Mac 命令用于说明工作流内部步骤。
+
+## Apple 编译环境与内部命令
 
 最低部署版本为 iOS / iPadOS 18.0。**构建需要带 iOS 27.1 或更新 SDK 的 Xcode**，因为 Duo 的保留区域 API 在该 SDK 中提供；这不会把最低系统版本提升到 27.1。
 
-使用 Apple silicon Mac；当前设备及模拟器切片均为 arm64。另需 Python 3.12+、CMake 3.24+ 和可下载锁定依赖的网络。Swift 和 Apple 编译器由 Xcode 提供。不需要 Homebrew 压缩库、CocoaPods、XcodeGen 或桌面解压命令行工具。工具链选择脚本自动选择满足条件的最高稳定 SDK；有意测试 beta 时需显式设置 DEVELOPER_DIR。
+CI 使用 Apple silicon；当前设备及模拟器切片均为 arm64。另需 Python 3.12+、CMake 3.24+ 和可下载锁定依赖的网络。Swift 和 Apple 编译器由 Xcode 提供。不需要 Homebrew 压缩库、CocoaPods、XcodeGen 或桌面解压命令行工具。工具链选择脚本扫描已安装 Xcode 并选择满足条件的最高稳定 SDK；有意测试 beta 时需显式设置 IARCHIVER_XCODE_PATH。
 
 首次设置：
 
@@ -54,7 +62,7 @@ python Scripts/generate_project.py
 bash Scripts/validate_apple.sh
 ```
 
-这会运行主机原生测试、Swift 核心 XCTest，构建 device/simulator 静态 XCFramework，再对两个 App Scheme 执行无签名的模拟器及设备构建，并检查设备产物中的 UnRAR 差异。所需 SDK 不存在时脚本明确失败，不会把跳过验证当作通过。
+Actions 按阶段执行此脚本，运行主机原生测试、Swift 核心 XCTest，构建 device/simulator 静态 XCFramework，再对两个 App Scheme 执行无签名的模拟器及设备构建，并检查设备产物中的 UnRAR 差异。随后通过矩阵作业在三台独立主机上运行两版 Release XCUITest，全部成功后打包原始产物。所需 SDK 或设备类型不存在时明确失败。
 
 只生成 iOS 依赖与工程：
 
@@ -70,7 +78,7 @@ open iArchiver.xcodeproj
 
 复制 `Config/Local.xcconfig.example` 为 `Config/Local.xcconfig`，填写自己的 Team ID 和 Bundle ID 前缀。该本地配置、私钥、证书、描述文件、IPA 与归档均已加入忽略列表。
 
-两个 Scheme：`iArchiver-AppStore` 和 `iArchiver-Sideload`，使用独立 Bundle ID，可同时安装。完成上述 Apple 验证与签名配置后，可用 Xcode Organizer，或执行：
+两个 Scheme：`iArchiver-AppStore` 和 `iArchiver-Sideload`，使用独立 Bundle ID，可同时安装。正式签名与导出也应在 GitHub Actions 的受保护发布环境中执行；开发者账户、证书和描述文件配置完成后，再接入相应工作流。当前 Validate 只生成未签名验证产物。以下命令是发布作业的内部参考：
 
 ```bash
 xcodebuild -project iArchiver.xcodeproj -scheme iArchiver-AppStore \
@@ -86,13 +94,13 @@ xcodebuild -exportArchive -archivePath Build/iArchiver-Sideload.xcarchive \
   -exportOptionsPlist Config/ExportOptions-Sideload.plist -exportPath Build/Export-Sideload
 ```
 
-侧载导出配置使用 development/debugging 分发，安装设备和有效期由实际签名资质及描述文件决定。个人免费签名账户是否允许该导出方式应在自己的 Xcode 中确认；直接 Build & Run 与导出可分发 IPA 是两件事。
+侧载导出配置使用 development/debugging 分发，安装设备和有效期由实际签名资质及描述文件决定。个人免费签名账户的导出能力仍需按实际签名资质确认；不能把未签名 IPA 当作可直接安装的自签包。
 
 商店上架仍须完成 [发布检查](Docs/RELEASE.md)、加密出口合规回答、真机验收及开发者账户设置。工程没有替你声明加密出口豁免。
 
-## Windows 验证
+## Windows 原生回归
 
-需要 Visual Studio 2022 的 C++ 桌面开发组件、CMake 及 Python：
+工作流的 `native-windows` 作业提供 Windows 兼容性回归。以下是旧的本地验证入口说明，后续不在开发机执行，改由 Actions 中的等效步骤运行：
 
 ```powershell
 python -m venv .venv

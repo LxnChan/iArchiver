@@ -48,7 +48,7 @@ struct BrowserNode: Identifiable, Hashable {
             }
             return BrowserNode(id: fullPath, name: name, isDirectory: isDirectory, size: bytes,
                 modified: exact?.modified ?? entries.first?.modified ?? .distantPast,
-                isEncrypted: entries.contains(\.isEncrypted), isSafe: entries.allSatisfy(\.isSafe),
+                isEncrypted: entries.contains(where: \.isEncrypted), isSafe: entries.allSatisfy(\.isSafe),
                 localURL: nil, archivePath: fullPath, entryIDs: Set(entries.map(\.id)))
         }
     }

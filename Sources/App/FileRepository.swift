@@ -1,5 +1,6 @@
 import Foundation
 import UniformTypeIdentifiers
+import OSLog
 
 struct LocalFileItem: Identifiable, Hashable, Sendable {
     var id: URL { url }
@@ -24,6 +25,7 @@ struct LocalFileItem: Identifiable, Hashable, Sendable {
 }
 
 enum FileRepository {
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "iArchiver", category: "FileImport")
     enum ConflictBehavior: String, CaseIterable, Identifiable {
         case rename, skip, replace
         var id: String { rawValue }
@@ -62,21 +64,28 @@ enum FileRepository {
             var staged: [URL] = []
             for url in urls {
                 try control.check()
+                control.configure(filename: url.lastPathComponent, baseBytes: 0, totalBytes: 0, index: 0, count: urls.count)
                 let accessing = url.startAccessingSecurityScopedResource()
                 defer { if accessing { url.stopAccessingSecurityScopedResource() } }
                 let coordinator = NSFileCoordinator()
                 var coordinationError: NSError?
                 var operationError: Error?
                 var result: URL?
+                logger.notice("Waiting for coordinated file access")
                 coordinator.coordinate(readingItemAt: url, options: [.withoutChanges], error: &coordinationError) { readable in
                     do {
+                        logger.notice("Coordinated access granted; beginning sandbox copy")
                         let target = uniqueDestination(in: stage, name: url.lastPathComponent)
                         guard !asVolumes || target.lastPathComponent == url.lastPathComponent else { throw ArchiveFailure(.unsafePath, url.lastPathComponent) }
                         try copyForImport(readable, to: target, control: control)
+                        logger.notice("Sandbox copy completed")
                         result = target
                     } catch { operationError = error }
                 }
-                if let error = coordinationError ?? operationError as NSError? { throw error }
+                if let error = coordinationError ?? operationError as NSError? {
+                    logger.error("Import failed; domain: \(error.domain, privacy: .public), code: \(error.code)")
+                    throw error
+                }
                 guard let result else { throw ArchiveFailure(.io) }
                 staged.append(result)
             }

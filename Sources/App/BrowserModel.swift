@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import UIKit
+import OSLog
 
 @MainActor
 final class BrowserModel: ObservableObject {
@@ -21,15 +22,12 @@ final class BrowserModel: ObservableObject {
     @Published var search = "" { didSet { rebuildNodes() } }
     @Published var sort: SortOrder = .name { didSet { rebuildNodes() } }
     @Published var showHidden = false { didSet { rebuildNodes(); Task { await refresh() } } }
-    @Published var showImporter = false
-    @Published var showVolumeImporter = false
-    @Published var showFolderImporter = false
+    @Published var pickerPurpose: DocumentPickerPurpose?
     @Published var showCreate = false
     @Published var showSettings = false
     @Published var showTasks = false
     @Published var showEncoding = false
     @Published var showPassword = false
-    @Published var showExport = false
     @Published var showNarrowPreview = false
     @Published var notice: Notice?
     @Published var progress: ArchiveProgress?
@@ -85,8 +83,14 @@ final class BrowserModel: ObservableObject {
         } catch { if refreshGeneration == token { report(error) } }
     }
     func importFiles(_ urls: [URL], asVolumes: Bool = false) {
+        importFiles(PickedDocuments(urls: urls), asVolumes: asVolumes)
+    }
+    func importFiles(_ selection: PickedDocuments, asVolumes: Bool = false) {
+        guard !selection.urls.isEmpty else { return }
+        DocumentPickerLog.logger.notice("Queuing selected files for import")
         perform(title: text("task.import")) { [self] control in
-            let results = try await FileRepository.importFiles(urls, asVolumes: asVolumes, control: control)
+            defer { withExtendedLifetime(selection) {} }
+            let results = try await FileRepository.importFiles(selection.urls, asVolumes: asVolumes, control: control)
             closeArchive()
             directory = FileRepository.home
             await refresh()
@@ -204,9 +208,10 @@ final class BrowserModel: ObservableObject {
             notice = Notice(title: text("task.done"), message: lastResult?.lastPathComponent ?? "")
         }
     }
-    func exportResult(to folder: URL) {
-        guard let result = lastResult else { return }
+    func exportResult(to selection: PickedDocuments) {
+        guard let result = lastResult, let folder = selection.urls.first else { return }
         perform(title: text("task.export")) { [self] control in
+            defer { withExtendedLifetime(selection) {} }
             let exported = try await FileRepository.export(result, to: folder, control: control)
             notice = Notice(title: text(exported.skipped ? "conflict.skipped" : "task.done"), message: exported.url.lastPathComponent)
         }

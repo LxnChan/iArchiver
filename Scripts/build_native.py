@@ -60,9 +60,13 @@ def build_dependencies(sources: dict, label: str, apple=None) -> pathlib.Path:
     build = ROOT / "Build" / "native" / label
     configure_build(sources["zlib"], build / "zlib", prefix, [
         "-DZLIB_BUILD_SHARED=OFF", "-DZLIB_BUILD_STATIC=ON", "-DZLIB_BUILD_TESTING=OFF"], apple)
+    # CMake 3.31's FindZLIB predates zlib 1.4's libzs.lib name on MSVC.
+    # Pass the exact pinned static library, avoiding accidental system linkage.
+    zlib_options = static_zlib_options(prefix)
     configure_build(sources["xz"], build / "xz", prefix, [
         "-DBUILD_TESTING=OFF", "-DXZ_TOOL_XZ=OFF", "-DXZ_TOOL_XZDEC=OFF",
         "-DXZ_TOOL_LZMADEC=OFF", "-DXZ_TOOL_LZMAINFO=OFF", "-DXZ_NLS=OFF", "-DXZ_DOC=OFF"], apple)
+    lzma_options = static_lzma_options(prefix)
     options = [f"-D{key}=OFF" for key in [
         "ENABLE_TAR", "ENABLE_CPIO", "ENABLE_CAT", "ENABLE_UNZIP", "ENABLE_TEST",
         "ENABLE_OPENSSL", "ENABLE_MBEDTLS", "ENABLE_NETTLE", "ENABLE_LIBB2", "ENABLE_LZ4",
@@ -71,15 +75,34 @@ def build_dependencies(sources: dict, label: str, apple=None) -> pathlib.Path:
         "ENABLE_XATTR", "ENABLE_ACL", "ENABLE_WERROR"]]
     options += ["-DENABLE_ZLIB=ON", "-DENABLE_LZMA=ON", "-DZLIB_USE_STATIC_LIBS=ON",
                 "-DCMAKE_DISABLE_FIND_PACKAGE_OpenSSL=TRUE", f"-DIA_SAFETY_PATCH_SHA256={patch_digest}"]
-    configure_build(sources["libarchive"], build / "libarchive", prefix, options, apple)
+    configure_build(sources["libarchive"], build / "libarchive", prefix, options + zlib_options + lzma_options, apple)
     return prefix
+
+
+def static_zlib_options(prefix: pathlib.Path) -> list[str]:
+    name = "libzs.lib" if platform.system() == "Windows" else "libz.a"
+    library = prefix / "lib" / name
+    if not library.is_file():
+        raise RuntimeError(f"Pinned static zlib was not installed: {library}")
+    return [f"-DZLIB_LIBRARY={library.as_posix()}", f"-DZLIB_INCLUDE_DIR={(prefix / 'include').as_posix()}"]
+
+
+def static_lzma_options(prefix: pathlib.Path) -> list[str]:
+    name = "lzma.lib" if platform.system() == "Windows" else "liblzma.a"
+    library = prefix / "lib" / name
+    if not library.is_file():
+        raise RuntimeError(f"Pinned static liblzma was not installed: {library}")
+    return [f"-DLIBLZMA_LIBRARY={library.as_posix()}", f"-DLIBLZMA_INCLUDE_DIR={(prefix / 'include').as_posix()}"]
 
 
 def build_bridge(prefix: pathlib.Path, label: str, side: bool, apple=None) -> pathlib.Path:
     name = "sideload" if side else "appstore"
     build = ROOT / "Build" / "native" / label / name
     options = [f"-DIA_SIDELOAD={'ON' if side else 'OFF'}", f"-DIA_SHARED={'OFF' if apple else 'ON'}",
-               "-DZLIB_USE_STATIC_LIBS=ON"]
+               "-DZLIB_USE_STATIC_LIBS=ON"] + static_zlib_options(prefix) + static_lzma_options(prefix)
+    archive_name = "archive.lib" if platform.system() == "Windows" else "libarchive.a"
+    options += [f"-DLibArchive_LIBRARY={(prefix / 'lib' / archive_name).as_posix()}",
+                f"-DLibArchive_INCLUDE_DIR={(prefix / 'include').as_posix()}"]
     # The wrapper's sources change often; always allow CMake to update it.
     stamp = build / ".iarchiver-built"
     if stamp.exists():

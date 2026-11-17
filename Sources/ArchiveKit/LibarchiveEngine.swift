@@ -1,6 +1,7 @@
 import Foundation
 import ArchiveCore
 import Dispatch
+import Darwin
 
 private enum ArchiveWorkGate {
     private static let semaphore = DispatchSemaphore(value: 1)
@@ -8,6 +9,15 @@ private enum ArchiveWorkGate {
         while semaphore.wait(timeout: .now() + .milliseconds(100)) == .timedOut { try control.check() }
         defer { semaphore.signal() }
         try control.check()
+        // Swift worker threads can retain the C/ASCII locale even when the UI
+        // language is Unicode. libarchive converts via the calling thread's
+        // locale. Scope UTF-8 to this synchronous operation, never setlocale()
+        // process-wide; the thread cannot suspend before this defer restores it.
+        guard let utf8 = newlocale(LC_CTYPE_MASK, "en_US.UTF-8", nil) else {
+            throw ArchiveFailure(.encoding, "The UTF-8 filename locale is unavailable.")
+        }
+        let previous = uselocale(utf8)
+        defer { uselocale(previous); freelocale(utf8) }
         return try body()
     }
 }
@@ -120,7 +130,7 @@ public struct LibarchiveEngine: Sendable {
         reader.setWorkspace(stage, maximumBytes: byteLimit)
         var ordinal = 0, completedEntries = 0
         var totalWritten: Int64 = 0
-        let compressedSize = max(1, snapshot.sourceSizes.reduce(0) { partial, value in
+        let compressedSize = max(1, snapshot.sourceSizes.reduce(Int64(0)) { partial, value in
             let result = partial.addingReportingOverflow(value)
             return result.overflow ? Int64.max : result.partialValue
         })
@@ -320,9 +330,11 @@ private struct FileFingerprint: Equatable {
     let size: Int64
     let modified: Date
     init(_ url: URL) throws {
-        let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
-        guard let size = values.fileSize, let modified = values.contentModificationDate else { throw ArchiveFailure(.io, url.lastPathComponent) }
-        self.size = Int64(size); self.modified = modified
+        // URL resource values may be cached across extraction. Query the file
+        // system afresh so provider changes cannot reuse an old fingerprint.
+        let values = try FileManager.default.attributesOfItem(atPath: url.path)
+        guard let size = values[.size] as? NSNumber, let modified = values[.modificationDate] as? Date else { throw ArchiveFailure(.io, url.lastPathComponent) }
+        self.size = size.int64Value; self.modified = modified
     }
 }
 

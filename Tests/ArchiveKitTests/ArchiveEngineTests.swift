@@ -47,7 +47,8 @@ final class ArchiveEngineTests: XCTestCase {
     }
     func testLegacyFilenameOverrideAndAutomaticChineseDetection() async throws {
         let url = try fixture("legacy-gb18030")
-        XCTAssertEqual(FilenameDetector.suggest(for: url, preferredLanguage: "zh-Hans").encoding, .gb18030)
+        XCTAssertEqual(FilenameDetector.suggest(for: url, preferredLanguage: "zh-Hans").encoding, .gb18030,
+            "Fixture: \(url.path); bytes: \((try? Data(contentsOf: url).count) ?? -1); samples: \(FilenameDetector.samples(for: url, encoding: .gb18030))")
         let snapshot = try await LibarchiveEngine().list(urls: [url], encoding: .gb18030)
         XCTAssertEqual(snapshot.entries.map(\.path), ["资料/简体中文.txt"])
     }

@@ -1,4 +1,5 @@
 import XCTest
+import CoreGraphics
 @testable import IArchiverKit
 
 final class PaneLayoutTests: XCTestCase {
