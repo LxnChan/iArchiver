@@ -38,13 +38,13 @@ def logged(arguments, path, timeout=120, check=True, progress=False):
                         if progress:
                             lines = reader.read().splitlines()
                             for line in lines:
-                                if line.startswith(("Test Case ", "Test Suite ")) or "error:" in line:
+                                if line.startswith(("Test Case ", "Test Suite ")) or "error:" in line or "Waiting " in line or 'Tap "' in line:
                                     print(line, flush=True)
                             print(f"{path.stem}: running ({time.monotonic() - started:.0f}s)", flush=True)
                         continue
                     if progress:
                         for line in reader.read().splitlines():
-                            if line.startswith(("Test Case ", "Test Suite ")) or "error:" in line:
+                            if line.startswith(("Test Case ", "Test Suite ")) or "error:" in line or "Waiting " in line or 'Tap "' in line:
                                 print(line, flush=True)
                     break
         except BaseException:
@@ -108,7 +108,7 @@ def test_variant(device, variant, results, logs):
     try:
         # Cold SDK/module compilation must not consume the UI execution budget.
         logged(["xcodebuild", "build-for-testing", *arguments],
-            logs / (name + "-build.log"), timeout=900)
+            logs / (name + "-build.log"), timeout=900, progress=True)
         documents = prepare_picker_fixtures(device, variant, logs, name)
         logged(["xcodebuild", "test-without-building", *arguments,
             "-resultBundlePath", str(results / (name + ".xcresult"))],

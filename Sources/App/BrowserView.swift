@@ -6,6 +6,7 @@ struct BrowserView: View {
     @State private var multiSelect = false
     @State private var previewVisible = true
     @State private var pendingSelection: (purpose: DocumentPickerPurpose, documents: PickedDocuments)?
+    @State private var pickerDismissed = true
     var body: some View {
         GeometryReader { geometry in
             let wide = geometry.size.width >= 720
@@ -72,10 +73,12 @@ struct BrowserView: View {
                     DocumentPicker(purpose: purpose) { documents in
                         pendingSelection = (purpose, documents)
                         model.pickerPurpose = nil
+                        importPendingSelection()
                     } onCancel: {
                         pendingSelection = nil
                         model.pickerPurpose = nil
                     }
+                    .onAppear { pickerDismissed = false }
                 }
             }
         }
@@ -218,7 +221,13 @@ struct BrowserView: View {
     private var passwordSheet: some View { ArchivePasswordView(model: model) }
     private func finishPicking() {
         DocumentPickerLog.logger.notice("Document picker dismissed")
-        guard let selection = pendingSelection else { return }
+        pickerDismissed = true
+        importPendingSelection()
+    }
+    private func importPendingSelection() {
+        // UIKit may dismiss its picker before it calls didPickDocumentsAt.
+        // Drain only once both events have arrived, in either callback order.
+        guard pickerDismissed, let selection = pendingSelection else { return }
         pendingSelection = nil
         switch selection.purpose {
         case .files, .importFolder: model.importFiles(selection.documents)
