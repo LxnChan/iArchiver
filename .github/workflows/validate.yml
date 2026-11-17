@@ -89,6 +89,7 @@ jobs:
             xcodebuild -showsdks
             xcrun simctl list devices available
           } | tee Build/logs/toolchain.log
+          xcrun simctl list --json > Build/logs/simulator-inventory.json
           {
             echo '### Apple toolchain'
             echo '```text'

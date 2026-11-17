@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 /// Window-local geometry, with no screen, device model, or orientation assumptions.
 public enum PaneLayout {

@@ -9,19 +9,21 @@ from bootstrap import ROOT
 
 
 def runtime_version(identifier):
-    match = re.search(r"iOS-(\d+)-(\d+)(?:-(\d+))?$", identifier)
+    match = re.search(r"iOS-(\d+)-(\d+)(?:-(\d+))?(?:$|[^0-9])", identifier)
     return tuple(int(part or 0) for part in match.groups()) if match else (0, 0, 0)
 
 
 def main():
     devices = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"], text=True))["devices"]
+    runtimes = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "runtimes", "-j"], text=True))["runtimes"]
+    versions = {runtime["identifier"]: tuple(int(part) for part in (runtime["version"].split(".") + ["0", "0"])[:3]) for runtime in runtimes}
     sdk = subprocess.check_output(["xcrun", "--sdk", "iphonesimulator", "--show-sdk-version"], text=True).strip()
     sdk_version = tuple(int(part) for part in (sdk.split(".") + ["0", "0"])[:3])
     selected = []
     for family in ["iPhone", "iPad", "Duo"]:
         choices = []
         for runtime, members in devices.items():
-            version = runtime_version(runtime)
+            version = versions.get(runtime, runtime_version(runtime))
             if not (27, 0, 0) <= version <= sdk_version:
                 continue
             for device in members:
