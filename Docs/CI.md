@@ -16,6 +16,8 @@ Apple 作业固定 `runs-on: xcode-27`，并通过 `IARCHIVER_XCODE_PATH` 固定
 6. 三个独立 Apple 作业并行验证 iPhone、iPad、Duo，隔离 CoreSimulator 的进程、内存与磁盘状态；每台主机只运行一种机型，两版 App 各执行一次 Release XCUITest。不高于构建 SDK：普通 iPhone / iPad 使用 27.0 runtime，Duo 使用 27.1 runtime。Xcode 在独立构建目录对测试包进行仅限模拟器的 ad hoc 签名、安装和启动，不需要开发者证书。断言文件列表、大屏左预览/右列表、设置打开与实际版本值，保存 Browser / Settings 截图；缺少机型或任一断言失败都会使作业失败，并保留服务诊断。
 7. 构建作业通过带 SHA-256 和源提交校验的归档传递原始四个 App、dSYM、XCFramework，保留执行权限。UI 作业不会改写这些未签名产物。仅在 Windows 回归、Apple 构建/核心测试和三组机型作业全部成功后，独立打包作业才发布最终验证包。
 
+UI 作业将 `build-for-testing` 与 `test-without-building` 分开执行：每版冷构建限时 15 分钟，安装及界面执行限时 5 分钟。两段分别保存日志和耗时，避免 SDK 模块首次编译挤占实际测试时间；未完成的测试仍视为失败。
+
 另一个 Windows 作业在 GitHub 的 `windows-2022` 机器编译两种原生引擎并运行跨平台回归。依赖缓存按 OS、CPU 架构、实际 Xcode 版本、锁文件、原生源码及构建/补丁脚本隔离。缓存恢复后仍进行源码哈希验证；桥接层每次调用 CMake 更新。
 
 ## 下载产物

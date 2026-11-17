@@ -7,6 +7,7 @@ import os
 import re
 import signal
 import subprocess
+import time
 from bootstrap import ROOT
 
 
@@ -17,6 +18,7 @@ def runtime_version(identifier):
 
 def logged(arguments, path, timeout=120, check=True):
     print(f"Running {path.stem}", flush=True)
+    started = time.monotonic()
     with path.open("w", encoding="utf-8") as output:
         process = subprocess.Popen(arguments, cwd=ROOT, stdout=output,
             stderr=subprocess.STDOUT, start_new_session=True)
@@ -33,6 +35,7 @@ def logged(arguments, path, timeout=120, check=True):
     if check and process.returncode:
         print(path.read_text(errors="replace")[-18000:], flush=True)
         raise RuntimeError(f"{path.stem} failed with exit {process.returncode}")
+    print(f"Finished {path.stem} in {time.monotonic() - started:.1f}s (exit {process.returncode})", flush=True)
 
 
 def test_variant(device, variant, results, logs):
@@ -41,19 +44,22 @@ def test_variant(device, variant, results, logs):
     screenshots.mkdir(parents=True, exist_ok=True)
     # Xcode installs an ad hoc signed Release test build in its own directory.
     # The distribution products stay unsigned and are never modified here.
-    arguments = ["xcodebuild", "test", "-project", "iArchiver.xcodeproj",
+    arguments = ["-project", "iArchiver.xcodeproj",
         "-scheme", f"iArchiver-{variant}", "-configuration", "Release",
         "-destination", f"platform=iOS Simulator,id={device['udid']}",
         "-destination-timeout", "120", "-parallel-testing-enabled", "NO",
         "-maximum-concurrent-test-simulator-destinations", "1",
         "-derivedDataPath", f"Build/DerivedData-UI-{variant}",
-        "-resultBundlePath", str(results / (name + ".xcresult")),
         # Simulator-only ad hoc signing uses no Apple account or private key.
         "CODE_SIGNING_ALLOWED=YES", "CODE_SIGN_IDENTITY=-", "CODE_SIGNING_REQUIRED=YES",
         "CODE_SIGN_STYLE=Manual", "DEVELOPMENT_TEAM="]
     try:
-        # Include first-boot installation of both the app and XCTest runner.
-        logged(arguments, logs / (name + ".log"), timeout=600)
+        # Cold SDK/module compilation must not consume the UI execution budget.
+        logged(["xcodebuild", "build-for-testing", *arguments],
+            logs / (name + "-build.log"), timeout=900)
+        logged(["xcodebuild", "test-without-building", *arguments,
+            "-resultBundlePath", str(results / (name + ".xcresult"))],
+            logs / (name + ".log"), timeout=300)
         print(f"::notice title=Simulator test passed::{name}: {device['name']}", flush=True)
     finally:
         bundle = results / (name + ".xcresult")

@@ -161,7 +161,7 @@ jobs:
     name: Release UI · ${{ matrix.family }}
     needs: apple
     runs-on: xcode-27
-    timeout-minutes: 30
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
