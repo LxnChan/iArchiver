@@ -13,7 +13,7 @@ Apple 作业固定 `runs-on: xcode-27`，并通过 `IARCHIVER_XCODE_PATH` 固定
 3. 运行真实 C ABI 归档集成测试与 Swift 核心 XCTest。
 4. 分别构建 AppStore / Sideload 的 Release 设备和模拟器 App，保存 `.xcresult`。
 5. 检查实际设备可执行文件中的 UnRAR 差异、许可、隐私清单、设备族和最低系统。
-6. 在不高于构建 SDK 的 iOS 27 模拟器中选择 iPhone、iPad、Duo，两个版本分别执行 XCUITest。Xcode 27.1 对应普通 iPhone / iPad 的 27.0 runtime 和 Duo 的 27.1 runtime。先独立安装/启动 Release App 并截图，再用仅限模拟器的 ad hoc 签名运行 Debug UI 测试，不需要开发者证书。断言启动、文件列表、大屏左预览/右列表、设置打开与版本标识。任一类别缺失或断言失败都会使作业失败；安装或启动失败也保存模拟器服务日志。
+6. 在不高于构建 SDK 的 iOS 27 模拟器中选择 iPhone、iPad、Duo，两个版本分别执行 XCUITest。Xcode 27.1 对应普通 iPhone / iPad 的 27.0 runtime 和 Duo 的 27.1 runtime。先独立安装/启动未签名 Release App 并记录初始帧，再在独立构建目录用仅限模拟器的 ad hoc 签名运行 Release UI 测试，不需要开发者证书。初始帧可能仍是启动屏，界面就绪以 XCUITest 断言和 Browser / Settings 附件为准。测试核对文件列表、大屏左预览/右列表、设置打开与版本标识。任一类别缺失或断言失败都会使作业失败；安装或启动失败也保存模拟器服务日志。
 7. 仅在前述阶段全部成功后打包未签名产物。
 
 另一个 Windows 作业在 GitHub 的 `windows-2022` 机器编译两种原生引擎并运行跨平台回归。依赖缓存按 OS、CPU 架构、实际 Xcode 版本、锁文件、原生源码及构建/补丁脚本隔离。缓存恢复后仍进行源码哈希验证；桥接层每次调用 CMake 更新。

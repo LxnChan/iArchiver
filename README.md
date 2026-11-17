@@ -78,7 +78,7 @@ open iArchiver.xcodeproj
 
 复制 `Config/Local.xcconfig.example` 为 `Config/Local.xcconfig`，填写自己的 Team ID 和 Bundle ID 前缀。该本地配置、私钥、证书、描述文件、IPA 与归档均已加入忽略列表。
 
-两个 Scheme：`iArchiver-AppStore` 和 `iArchiver-Sideload`，使用独立 Bundle ID，可同时安装。完成上述 Apple 验证与签名配置后，可用 Xcode Organizer，或执行：
+两个 Scheme：`iArchiver-AppStore` 和 `iArchiver-Sideload`，使用独立 Bundle ID，可同时安装。正式签名与导出也应在 GitHub Actions 的受保护发布环境中执行；开发者账户、证书和描述文件配置完成后，再接入相应工作流。当前 Validate 只生成未签名验证产物。以下命令是发布作业的内部参考：
 
 ```bash
 xcodebuild -project iArchiver.xcodeproj -scheme iArchiver-AppStore \
@@ -94,7 +94,7 @@ xcodebuild -exportArchive -archivePath Build/iArchiver-Sideload.xcarchive \
   -exportOptionsPlist Config/ExportOptions-Sideload.plist -exportPath Build/Export-Sideload
 ```
 
-侧载导出配置使用 development/debugging 分发，安装设备和有效期由实际签名资质及描述文件决定。个人免费签名账户是否允许该导出方式应在自己的 Xcode 中确认；直接 Build & Run 与导出可分发 IPA 是两件事。
+侧载导出配置使用 development/debugging 分发，安装设备和有效期由实际签名资质及描述文件决定。个人免费签名账户的导出能力仍需按实际签名资质确认；不能把未签名 IPA 当作可直接安装的自签包。
 
 商店上架仍须完成 [发布检查](Docs/RELEASE.md)、加密出口合规回答、真机验收及开发者账户设置。工程没有替你声明加密出口豁免。
 

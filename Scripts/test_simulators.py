@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run actual XCUITest assertions on each required device family, both variants."""
+"""Run Release XCUITest assertions on each required device family, both variants."""
 from __future__ import annotations
 import json
 import os
@@ -50,11 +50,11 @@ def test_variant(device, variant, results, logs):
     logged(["xcrun", "simctl", "install", device["udid"], str(app)], logs / (name + "-install.log"), timeout=240)
     logged(["xcrun", "simctl", "launch", device["udid"], bundle_id], logs / (name + "-launch.log"))
     time.sleep(3)
-    logged(["xcrun", "simctl", "io", device["udid"], "screenshot", str(screenshots / "Release-launch.png")], logs / (name + "-screenshot.log"))
+    logged(["xcrun", "simctl", "io", device["udid"], "screenshot", str(screenshots / "Release-initial-frame.png")], logs / (name + "-screenshot.log"))
     logged(["xcrun", "simctl", "terminate", device["udid"], bundle_id], logs / (name + "-terminate.log"))
 
     arguments = ["xcodebuild", "test", "-project", "iArchiver.xcodeproj",
-        "-scheme", f"iArchiver-{variant}", "-configuration", "Debug",
+        "-scheme", f"iArchiver-{variant}", "-configuration", "Release",
         "-destination", f"platform=iOS Simulator,id={device['udid']}",
         "-destination-timeout", "120", "-parallel-testing-enabled", "NO",
         "-maximum-concurrent-test-simulator-destinations", "1",
