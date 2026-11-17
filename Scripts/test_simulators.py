@@ -32,10 +32,11 @@ def main():
                            family == "iPhone" and name.startswith("iPhone") and "Duo" not in name or
                            family == "iPad" and name.startswith("iPad"))
                 if matches and device.get("isAvailable", False):
-                    choices.append((version, name, device["udid"]))
+                    preferred = int(family == "iPad" and "Pro 13-inch" in name)
+                    choices.append((version, preferred, name, device["udid"]))
         if not choices:
             raise RuntimeError(f"No iOS 27 simulator for {family}; required coverage cannot be skipped")
-        version, name, udid = sorted(choices)[-1]
+        version, _, name, udid = sorted(choices)[-1]
         selected.append({"family": family, "name": name, "runtime": version, "udid": udid})
 
     results = ROOT / "Build" / "TestResults"

@@ -1,6 +1,6 @@
 # 实施状态与验证边界
 
-记录日期：2026-11-14。当前主机为 Windows，未安装 Swift / Xcode。状态是 **首个源码版本，等待 Apple 构建验证**，不是已发布或可直接安装的 App。
+记录日期：2026-11-17。源码编辑在 Windows，**编译与测试统一由 GitHub Actions 执行**。Apple 作业使用 `xcode-27` 的 Apple silicon 主机，实际选择了 Xcode 27.2 / iOS 27.2 SDK；最低部署仍为 iOS 18。尚无已签名发行包，尚未提交 App Store。
 
 ## 已有产物
 
@@ -10,11 +10,15 @@
 - 隐私清单、按构建区分的许可资源、签名/导出模板、无签名 Apple 验证入口和 CI 配置。
 - 隐私政策、支持说明、商店文案、审核说明和发布检查草稿。
 
-## 本机实际通过的检查
+## 实际通过的检查
 
 | 检查 | 结果及范围 |
 | --- | --- |
 | MSVC Release 编译 | App Store / Sideload 两个 ArchiveCore.dll 编译成功 |
+| Actions Windows 回归 | 两版引擎编译及 21 项真实 C ABI 集成测试通过 |
+| Actions macOS 回归 | 两版原生引擎编译及 21 项真实 C ABI 集成测试通过；ZIP Unicode 扩展 CRC 按原始名字节校验 |
+| Apple 静态库 | arm64 iOS 与 arm64 Simulator 的两版 XCFramework 编译成功，依赖显式链接到锁定的静态库 |
+| Swift 核心 XCTest | 26 项通过：11 项归档操作、9 项提取安全策略、6 项布局几何 |
 | 原生 C ABI 集成测试 | 21 项通过，调用实际锁定的依赖实现 |
 | 创建后读回 | ZIP、7z、TAR、TAR.GZ、GZ；侧载 ISO |
 | 标准库互操作 | Python zipfile / tarfile / gzip 能读取普通输出；ZIP 中文/emoji 名称带有效 UTF-8 标志 |
@@ -29,9 +33,9 @@
 
 原生 Windows Release DLL 基线：商店约 1.31 MiB、侧载约 1.88 MiB。**这不是 iOS 下载体积或安装体积**；实际值须在 Apple 构建与 App Thinning 后测量。
 
-Swift XCTest 已编写但未运行；语法树检查不包含类型、SDK 符号、Actor 隔离、链接和界面行为验证。Apple 构建脚本与 CI 也尚未在本次环境执行。
+Swift 核心代码现已通过 Apple 编译器和实际 XCTest。原生操作在同步工作线程范围使用 UTF-8 locale，避免 Swift 线程初始 C/ASCII locale 导致名称损坏；文件指纹重新查询文件系统，避免复用 URL 缓存属性。App UI、最终设备产物与模拟器结果以对应 Actions 阶段的真实结果为准。
 
-## 在 Mac 上必须完成
+## 发布前仍需完成
 
 1. 运行 `bash Scripts/validate_apple.sh`；修正所有 Swift 类型检查、公共 API 使用、Apple C/C++ 编译及链接问题。
 2. 验证 iOS 18 / 26 / 27，iPad 分屏、Duo 展开/闭合/桌面姿态、摄像头区域、旋转与 Dynamic Type。
