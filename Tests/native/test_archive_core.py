@@ -18,6 +18,8 @@ import gzip
 import unicodedata
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "Scripts"))
+from picker_fixtures import ENTRY_NAME, write_archive
 
 
 class Entry(C.Structure):
@@ -156,6 +158,12 @@ class CoreTests(unittest.TestCase):
 
     def tearDown(self):
         self.temp.cleanup()
+
+    def test_document_picker_7z_fixture_is_readable(self):
+        archive = self.root / "picker.7z"
+        write_archive(archive, size=1024 * 1024)
+        for bridge in [self.store, self.side]:
+            self.assertEqual(bridge.read([archive]), {ENTRY_NAME: b""})
 
     def test_locked_version_and_actual_variant_capabilities(self):
         self.assertIn(b"3.8.11", self.store.lib.ia_version())

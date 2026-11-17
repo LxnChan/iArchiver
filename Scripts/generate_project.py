@@ -31,6 +31,7 @@ def generate():
         return result
     def reference(path, filetype):
         return add("file:" + path, "PBXFileReference", lastKnownFileType=filetype, path=path, sourceTree="<group>")
+    # Include app adapters (such as the native document picker) in both editions.
     swift_files = sorted(path.relative_to(ROOT).as_posix() for path in (ROOT / "Sources").rglob("*.swift"))
     swift_refs = [reference(path, "sourcecode.swift") for path in swift_files]
     ui_ref = reference("Tests/UITests/BrowserUITests.swift", "sourcecode.swift")

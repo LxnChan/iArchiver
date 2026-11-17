@@ -4,11 +4,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import pathlib
+import plistlib
 import re
+import shutil
 import signal
 import subprocess
 import time
 from bootstrap import ROOT
+from picker_fixtures import FIXTURE_DIRECTORY, LARGE_ARCHIVE, LARGE_SIZE, write_archive
 
 
 def runtime_version(identifier):
@@ -38,6 +42,34 @@ def logged(arguments, path, timeout=120, check=True):
     print(f"Finished {path.stem} in {time.monotonic() - started:.1f}s (exit {process.returncode})", flush=True)
 
 
+def prepare_picker_fixtures(device, variant, logs, name):
+    product = "iArchiver" if variant == "AppStore" else "iArchiver Sideload"
+    app = (ROOT / f"Build/DerivedData-UI-{variant}/Build/Products"
+           / "Release-iphonesimulator" / (product + ".app"))
+    with (app / "Info.plist").open("rb") as stream:
+        bundle_id = plistlib.load(stream)["CFBundleIdentifier"]
+    # Only install the ad hoc SIGNED build-for-testing product, never the
+    # unsigned distribution app. A normal subsequent XCTest install keeps data.
+    logged(["xcrun", "simctl", "install", device["udid"], str(app)],
+           logs / (name + "-install.log"), timeout=120)
+    container = pathlib.Path(subprocess.check_output(
+        ["xcrun", "simctl", "get_app_container", device["udid"], bundle_id, "data"],
+        text=True, timeout=30).strip())
+    documents = container / "Documents"
+    fixtures = documents / FIXTURE_DIRECTORY
+    fixtures.mkdir(parents=True, exist_ok=True)
+    archive = fixtures / LARGE_ARCHIVE
+    write_archive(archive)
+    if archive.stat().st_size != LARGE_SIZE:
+        raise RuntimeError("Large document-picker fixture has the wrong logical size")
+    print(f"Prepared real picker source: {archive.name}, {archive.stat().st_size} bytes", flush=True)
+    (logs / (name + "-picker-fixture.json")).write_text(json.dumps({
+        "name": archive.name, "logicalBytes": archive.stat().st_size,
+        "description": "Valid 7z with one empty file and a sparse gap before NextHeader; import copies all bytes.",
+    }, indent=2) + "\n")
+    return documents
+
+
 def test_variant(device, variant, results, logs):
     name = f"ui-{variant}-{device['family']}"
     screenshots = ROOT / "Build" / "Screenshots" / name
@@ -53,17 +85,29 @@ def test_variant(device, variant, results, logs):
         # Simulator-only ad hoc signing uses no Apple account or private key.
         "CODE_SIGNING_ALLOWED=YES", "CODE_SIGN_IDENTITY=-", "CODE_SIGNING_REQUIRED=YES",
         "CODE_SIGN_STYLE=Manual", "DEVELOPMENT_TEAM="]
+    documents = None
     try:
         # Cold SDK/module compilation must not consume the UI execution budget.
         logged(["xcodebuild", "build-for-testing", *arguments],
             logs / (name + "-build.log"), timeout=900)
+        documents = prepare_picker_fixtures(device, variant, logs, name)
         logged(["xcodebuild", "test-without-building", *arguments,
             "-resultBundlePath", str(results / (name + ".xcresult"))],
             # Duo's native menu can use XCTest's 60-second animation waits;
-            # include installation, those waits and xcresult finalization.
-            logs / (name + ".log"), timeout=600)
+            # include the real 5 GiB picker/import regression and finalization.
+            logs / (name + ".log"), timeout=900)
         print(f"::notice title=Simulator test passed::{name}: {device['name']}", flush=True)
     finally:
+        try:
+            logged(["xcrun", "simctl", "spawn", device["udid"], "log", "show",
+                    "--last", "20m", "--style", "compact", "--predicate",
+                    'category == "DocumentPicker" OR category == "FileImport"'],
+                   logs / (name + "-picker.log"), timeout=45, check=False)
+        except Exception as error:
+            print(f"Picker diagnostics unavailable: {error}", flush=True)
+        if documents is not None:
+            shutil.rmtree(documents / FIXTURE_DIRECTORY, ignore_errors=True)
+            (documents / LARGE_ARCHIVE).unlink(missing_ok=True)
         bundle = results / (name + ".xcresult")
         if bundle.exists():
             try:

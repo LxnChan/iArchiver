@@ -1,10 +1,11 @@
 import SwiftUI
-import UniformTypeIdentifiers
+import OSLog
 
 struct BrowserView: View {
     @ObservedObject var model: BrowserModel
     @State private var multiSelect = false
     @State private var previewVisible = true
+    @State private var pendingSelection: (purpose: DocumentPickerPurpose, documents: PickedDocuments)?
     var body: some View {
         GeometryReader { geometry in
             let wide = geometry.size.width >= 720
@@ -67,24 +68,13 @@ struct BrowserView: View {
                 .confirmationDialog("delete.confirm", isPresented: Binding(get: { !model.deleteTargets.isEmpty }, set: { if !$0 { model.deleteTargets = [] } }), titleVisibility: .visible) {
                     Button("action.delete", role: .destructive) { model.deleteConfirmed() }
                 }
-                .fileImporter(isPresented: $model.showImporter, allowedContentTypes: [.item], allowsMultipleSelection: true) { handleImport($0, volumes: false) }
-                .background {
-                    Color.clear.fileImporter(isPresented: $model.showVolumeImporter, allowedContentTypes: [.item], allowsMultipleSelection: true) { handleImport($0, volumes: true) }
-                }
-                .background {
-                    Color.clear.fileImporter(isPresented: $model.showFolderImporter, allowedContentTypes: [.folder]) { result in
-                        switch result {
-                        case .success(let url): model.importFiles([url])
-                        case .failure(let error): model.notice = .init(title: NSLocalizedString("error.title", comment: ""), message: error.localizedDescription)
-                        }
-                    }
-                }
-                .background {
-                    Color.clear.fileImporter(isPresented: $model.showExport, allowedContentTypes: [.folder]) { result in
-                        switch result {
-                        case .success(let url): model.exportResult(to: url)
-                        case .failure(let error): model.notice = .init(title: NSLocalizedString("error.title", comment: ""), message: error.localizedDescription)
-                        }
+                .sheet(item: $model.pickerPurpose, onDismiss: finishPicking) { purpose in
+                    DocumentPicker(purpose: purpose) { documents in
+                        pendingSelection = (purpose, documents)
+                        model.pickerPurpose = nil
+                    } onCancel: {
+                        pendingSelection = nil
+                        model.pickerPurpose = nil
                     }
                 }
             }
@@ -160,9 +150,9 @@ struct BrowserView: View {
                 Label(LocalizedStringKey(multiSelect ? "action.done" : "action.select"), systemImage: multiSelect ? "checkmark.circle.fill" : "checkmark.circle")
             }.disabled(model.isBusy)
             Menu {
-                Button("action.import", systemImage: "square.and.arrow.down") { model.showImporter = true }
-                Button("action.importFolder", systemImage: "folder.badge.plus") { model.showFolderImporter = true }
-                Button("action.volumes", systemImage: "square.stack.3d.up") { model.showVolumeImporter = true }
+                Button("action.import", systemImage: "square.and.arrow.down") { model.pickerPurpose = .files }
+                Button("action.importFolder", systemImage: "folder.badge.plus") { model.pickerPurpose = .importFolder }
+                Button("action.volumes", systemImage: "square.stack.3d.up") { model.pickerPurpose = .volumes }
                 if model.hasArchiveSource {
                     Button("encoding.title", systemImage: "character.bubble") { model.showEncoding = true }
                     Button("field.password", systemImage: "key") { model.showPassword = true }
@@ -184,8 +174,9 @@ struct BrowserView: View {
 
     private var actionBar: some View {
         HStack {
-            Button { model.showImporter = true } label: { Label("action.import", systemImage: "plus") }
+            Button { model.pickerPurpose = .files } label: { Label("action.import", systemImage: "plus") }
                 .keyboardShortcut("o", modifiers: .command)
+                .accessibilityIdentifier("importFiles")
             Spacer()
             if model.snapshot != nil {
                 Button { model.showCreate = true } label: { Label("action.repack", systemImage: "arrow.triangle.2.circlepath") }
@@ -211,6 +202,7 @@ struct BrowserView: View {
         }
         .padding(.horizontal).padding(.vertical, 8).background(.background.secondary)
         .disabled(model.isBusy)
+        .accessibilityIdentifier("archiveSummary")
     }
     private func resultBar(_ url: URL) -> some View {
         HStack {
@@ -218,16 +210,20 @@ struct BrowserView: View {
             Text(url.lastPathComponent).font(.caption).lineLimit(1)
             Spacer()
             ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }.accessibilityLabel("action.share")
-            Button { model.showExport = true } label: { Image(systemName: "folder.badge.plus") }.accessibilityLabel("action.export")
+            Button { model.pickerPurpose = .exportFolder } label: { Image(systemName: "folder.badge.plus") }.accessibilityLabel("action.export")
             Button { model.lastResult = nil } label: { Image(systemName: "xmark") }.accessibilityLabel("action.dismiss")
         }.padding(12).background(.background.secondary)
     }
     private var encodingSheet: some View { ArchiveEncodingView(model: model) }
     private var passwordSheet: some View { ArchivePasswordView(model: model) }
-    private func handleImport(_ result: Result<[URL], Error>, volumes: Bool) {
-        switch result {
-        case .success(let urls): model.importFiles(urls, asVolumes: volumes)
-        case .failure(let error): model.notice = .init(title: NSLocalizedString("error.title", comment: ""), message: error.localizedDescription)
+    private func finishPicking() {
+        DocumentPickerLog.logger.notice("Document picker dismissed")
+        guard let selection = pendingSelection else { return }
+        pendingSelection = nil
+        switch selection.purpose {
+        case .files, .importFolder: model.importFiles(selection.documents)
+        case .volumes: model.importFiles(selection.documents, asVolumes: true)
+        case .exportFolder: model.exportResult(to: selection.documents)
         }
     }
 }
@@ -279,5 +275,6 @@ struct TaskProgressView: View {
                 }
             }
         }.padding().background(.regularMaterial)
+        .accessibilityIdentifier("taskProgress")
     }
 }
