@@ -20,14 +20,33 @@ def runtime_version(identifier):
     return tuple(int(part or 0) for part in match.groups()) if match else (0, 0, 0)
 
 
-def logged(arguments, path, timeout=120, check=True):
+def logged(arguments, path, timeout=120, check=True, progress=False):
     print(f"Running {path.stem}", flush=True)
     started = time.monotonic()
     with path.open("w", encoding="utf-8") as output:
         process = subprocess.Popen(arguments, cwd=ROOT, stdout=output,
             stderr=subprocess.STDOUT, start_new_session=True)
         try:
-            process.wait(timeout=timeout)
+            with path.open(encoding="utf-8", errors="replace") as reader:
+                while True:
+                    remaining = timeout - (time.monotonic() - started)
+                    if remaining <= 0:
+                        raise subprocess.TimeoutExpired(arguments, timeout)
+                    try:
+                        process.wait(timeout=min(30, remaining))
+                    except subprocess.TimeoutExpired:
+                        if progress:
+                            lines = reader.read().splitlines()
+                            for line in lines:
+                                if line.startswith(("Test Case ", "Test Suite ")) or "error:" in line:
+                                    print(line, flush=True)
+                            print(f"{path.stem}: running ({time.monotonic() - started:.0f}s)", flush=True)
+                        continue
+                    if progress:
+                        for line in reader.read().splitlines():
+                            if line.startswith(("Test Case ", "Test Suite ")) or "error:" in line:
+                                print(line, flush=True)
+                    break
         except BaseException:
             try:
                 os.killpg(process.pid, signal.SIGKILL)
@@ -95,7 +114,7 @@ def test_variant(device, variant, results, logs):
             "-resultBundlePath", str(results / (name + ".xcresult"))],
             # Duo's native menu can use XCTest's 60-second animation waits;
             # include the real 5 GiB picker/import regression and finalization.
-            logs / (name + ".log"), timeout=900)
+            logs / (name + ".log"), timeout=900, progress=True)
         print(f"::notice title=Simulator test passed::{name}: {device['name']}", flush=True)
     finally:
         try:

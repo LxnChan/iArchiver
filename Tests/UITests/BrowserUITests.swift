@@ -43,7 +43,7 @@ final class BrowserUITests: XCTestCase {
             app.buttons["importFiles"].tap()
             let picker = app.descendants(matching: .any)["documentPicker"].firstMatch
             XCTAssertTrue(picker.waitForExistence(timeout: 15))
-            try tapVisible(containing: "Cancel", in: picker)
+            tapPickerButton("Cancel", in: app)
             XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
                 predicate: NSPredicate(format: "exists == false"), object: picker)], timeout: 15), .completed)
             XCTAssertTrue(app.buttons["importFiles"].isHittable)
@@ -56,10 +56,10 @@ final class BrowserUITests: XCTestCase {
         app.buttons["importFiles"].tap()
         let picker = app.descendants(matching: .any)["documentPicker"].firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 15))
-        try tapVisible(containing: "Picker Fixtures", in: picker)
-        try tapVisible(containing: "iArchiver-CI-5GiB", in: picker)
+        tapPickerItem("Picker Fixtures", in: app)
+        tapPickerItem("iArchiver-CI-5GiB", in: app)
         attachScreenshot("LargeArchiveSelected")
-        try tapVisible(containing: "Open", in: picker, exact: true)
+        tapPickerButton("Open", in: app)
 
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "exists == false"), object: picker)], timeout: 15), .completed,
@@ -80,15 +80,29 @@ final class BrowserUITests: XCTestCase {
         return app
     }
 
-    private func tapVisible(containing name: String, in container: XCUIElement, exact: Bool = false) throws {
-        let predicate = NSPredicate(format: exact ? "label == %@" : "label CONTAINS %@", name)
-        let candidates = container.descendants(matching: .any).matching(predicate)
-        let available = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            candidates.allElementsBoundByIndex.contains { $0.isHittable }
-        }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [available], timeout: 20), .completed,
-            "Picker item \(name) was not available.\n\(container.debugDescription)")
-        try XCTUnwrap(candidates.allElementsBoundByIndex.first { $0.isHittable }).tap()
+    private func tapPickerButton(_ name: String, in app: XCUIApplication) {
+        // The provider's remote view can take time to start on a cold simulator.
+        // Query a typed control from the app, without repeatedly enumerating
+        // every descendant beneath a remote accessibility element in a waiter.
+        let button = app.navigationBars.buttons[name].firstMatch
+        XCTAssertTrue(button.waitForExistence(timeout: 120), "Picker button \(name) did not appear")
+        button.tap()
+    }
+
+    private func tapPickerItem(_ name: String, in app: XCUIApplication) {
+        let cell = app.cells.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
+        XCTAssertTrue(cell.waitForExistence(timeout: 120), "Picker item \(name) did not appear")
+        cell.tap()
+    }
+
+    override func tearDownWithError() throws {
+        if let testRun, testRun.failureCount > 0 {
+            attachScreenshot("Failure")
+            let hierarchy = XCTAttachment(string: XCUIApplication().debugDescription)
+            hierarchy.name = "Accessibility hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
     }
 
     private func attachScreenshot(_ name: String) {
