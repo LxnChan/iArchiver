@@ -120,7 +120,7 @@ public struct LibarchiveEngine: Sendable {
         reader.setWorkspace(stage, maximumBytes: byteLimit)
         var ordinal = 0, completedEntries = 0
         var totalWritten: Int64 = 0
-        let compressedSize = max(1, snapshot.sourceSizes.reduce(0) { partial, value in
+        let compressedSize = max(1, snapshot.sourceSizes.reduce(Int64(0)) { partial, value in
             let result = partial.addingReportingOverflow(value)
             return result.overflow ? Int64.max : result.partialValue
         })

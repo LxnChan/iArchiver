@@ -128,10 +128,15 @@ jobs:
       - name: Run Swift core XCTest suite
         run: bash Scripts/validate_apple.sh swift-tests
       - name: Build both app variants for simulator and device
+        id: apps
+        if: ${{ !cancelled() && steps.native.outcome == 'success' }}
         run: bash Scripts/validate_apple.sh apps
       - name: Verify compiled variant boundaries and privacy resources
+        id: bundles
+        if: ${{ !cancelled() && steps.apps.outcome == 'success' }}
         run: bash Scripts/validate_apple.sh bundles
       - name: Run simulator UI checks on iPhone, iPad and Duo
+        if: ${{ !cancelled() && steps.bundles.outcome == 'success' }}
         run: python3 Scripts/test_simulators.py
       - name: Package unsigned build products
         run: python3 Scripts/package_apple_artifacts.py

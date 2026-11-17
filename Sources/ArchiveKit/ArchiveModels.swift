@@ -77,7 +77,7 @@ public struct ArchiveSnapshot: Sendable {
     public let encodingWasInferred: Bool
     public let sourceSizes: [Int64]
     public let sourceModified: [Date]
-    public var totalSize: Int64 { entries.reduce(0) { $0.addingReportingOverflow(max(0, $1.size)).overflow ? Int64.max : $0 + max(0, $1.size) } }
+    public var totalSize: Int64 { entries.reduce(Int64(0)) { $0.addingReportingOverflow(max(0, $1.size)).overflow ? Int64.max : $0 + max(0, $1.size) } }
 }
 
 public struct ArchiveProgress: Sendable {
