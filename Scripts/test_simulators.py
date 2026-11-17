@@ -59,7 +59,9 @@ def test_variant(device, variant, results, logs):
             logs / (name + "-build.log"), timeout=900)
         logged(["xcodebuild", "test-without-building", *arguments,
             "-resultBundlePath", str(results / (name + ".xcresult"))],
-            logs / (name + ".log"), timeout=300)
+            # Duo's native menu can use XCTest's 60-second animation waits;
+            # include installation, those waits and xcresult finalization.
+            logs / (name + ".log"), timeout=600)
         print(f"::notice title=Simulator test passed::{name}: {device['name']}", flush=True)
     finally:
         bundle = results / (name + ".xcresult")
