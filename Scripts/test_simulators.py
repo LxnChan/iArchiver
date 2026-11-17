@@ -114,6 +114,22 @@ def main():
             # next family. First failure stops the suite and uploads evidence.
             for variant in ["AppStore", "Sideload"]:
                 test_variant(device, variant, results, logs)
+        except Exception:
+            # Installation can hang before XCTest creates a result bundle.
+            # Retain simulator service evidence even for those early failures.
+            diagnostics = [
+                (["xcrun", "simctl", "list", "-j"], "inventory"),
+                (["/usr/bin/log", "show", "--last", "5m", "--style", "compact",
+                  "--predicate", 'process == "simdiskimaged" OR process == "CoreSimulatorService"'], "services"),
+                (["/usr/bin/vm_stat"], "memory"),
+                (["/bin/df", "-h"], "disk"),
+            ]
+            for arguments, suffix in diagnostics:
+                try:
+                    logged(arguments, logs / f"simulator-{device['family']}-{suffix}.log", timeout=30, check=False)
+                except Exception as error:
+                    print(f"Diagnostic {suffix} unavailable: {error}", flush=True)
+            raise
         finally:
             try:
                 logged(["xcrun", "simctl", "shutdown", device["udid"]], logs / ("shutdown-" + device["family"] + ".log"), timeout=45, check=False)

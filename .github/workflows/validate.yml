@@ -64,6 +64,9 @@ jobs:
     # macos-latest carries Xcode 26. Use the explicit Apple silicon image.
     runs-on: xcode-27
     timeout-minutes: 60
+    env:
+      # Keep the public SDK and simulator matrix reproducible as the image updates.
+      IARCHIVER_XCODE_PATH: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
