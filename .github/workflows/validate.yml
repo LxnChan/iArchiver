@@ -2,6 +2,7 @@ name: Validate
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -60,7 +61,7 @@ jobs:
           retention-days: 14
 
   apple:
-    name: Xcode 27 · iPhone, iPad, Duo
+    name: Xcode 27 · builds and core tests
     # macos-latest carries Xcode 26. Use the explicit Apple silicon image.
     runs-on: xcode-27
     timeout-minutes: 60
@@ -138,21 +139,88 @@ jobs:
         id: bundles
         if: ${{ !cancelled() && steps.apps.outcome == 'success' }}
         run: bash Scripts/validate_apple.sh bundles
-      - name: Run simulator UI checks on iPhone, iPad and Duo
-        if: ${{ !cancelled() && steps.bundles.outcome == 'success' }}
-        run: python3 Scripts/test_simulators.py
-      - name: Package unsigned build products
-        run: python3 Scripts/package_apple_artifacts.py
+      - name: Stage validated unsigned products for downstream jobs
+        run: python3 Scripts/transfer_apple_products.py create
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apple-build-inputs
+          path: Build/Transfer
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: apple-diagnostics-${{ github.run_attempt }}
+          name: apple-build-diagnostics-${{ github.run_attempt }}
+          path: |
+            Build/logs
+            Build/TestResults
+          retention-days: 14
+          if-no-files-found: warn
+  apple-ui:
+    name: Release UI · ${{ matrix.family }}
+    needs: apple
+    runs-on: xcode-27
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [iPhone, iPad, Duo]
+    env:
+      IARCHIVER_XCODE_PATH: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Select required Apple toolchain
+        shell: bash
+        run: |
+          mkdir -p Build/logs
+          selected_xcode="$(python3 Scripts/apple_toolchain.py)"
+          export DEVELOPER_DIR="$selected_xcode"
+          echo "DEVELOPER_DIR=$selected_xcode" >> "$GITHUB_ENV"
+          xcodebuild -version | tee Build/logs/toolchain.log
+          xcrun simctl list --json > Build/logs/simulator-inventory.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: apple-build-inputs
+          path: Build/Transfer
+      - name: Restore matching Apple build products
+        run: |
+          python3 Scripts/transfer_apple_products.py restore
+          python3 Scripts/generate_project.py
+      - name: Test both Release editions on ${{ matrix.family }}
+        run: python3 Scripts/test_simulators.py --family ${{ matrix.family }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: apple-ui-diagnostics-${{ matrix.family }}-${{ github.run_attempt }}
           path: |
             Build/logs
             Build/TestResults
             Build/Screenshots
           retention-days: 14
           if-no-files-found: warn
+
+  apple-package:
+    name: Package validated unsigned apps
+    needs: [native-windows, apple, apple-ui]
+    runs-on: xcode-27
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@v4
+        with:
+          name: apple-build-inputs
+          path: Build/Transfer
+      - name: Restore matching Apple build products
+        run: python3 Scripts/transfer_apple_products.py restore
+      - name: Package unsigned build products
+        run: python3 Scripts/package_apple_artifacts.py
       - uses: actions/upload-artifact@v4
         with:
           name: unsigned-apple-builds

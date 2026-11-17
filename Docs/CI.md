@@ -4,7 +4,7 @@
 
 ## 触发与执行
 
-推送、Pull Request 和 `workflow_dispatch` 均可触发 Validate。并发控制会取消同一 Git ref 的旧运行；不同分支互不取消。工作流只有 `contents: read` 权限，不自动发布 Release、提交审核或使用签名秘密。
+向 `main` 推送、打开或更新 Pull Request，以及 `workflow_dispatch` 均可触发 Validate。功能分支使用 PR 检查，避免每次提交重复启动两套 Apple 验证。并发控制会取消同一 Git ref 的旧运行；不同分支互不取消。工作流只有 `contents: read` 权限，不自动发布 Release、提交审核或使用签名秘密。
 
 Apple 作业固定 `runs-on: xcode-27`，并通过 `IARCHIVER_XCODE_PATH` 固定公开的 Xcode 27.1，避免镜像新增工具链时无声改变验证环境。启动时要求 iOS SDK 27.1+，记录实际 Xcode、SDK、架构和模拟器。SDK 检测失败会在编译前停止。最低运行系统仍为 iOS / iPadOS 18.0。
 
@@ -13,8 +13,8 @@ Apple 作业固定 `runs-on: xcode-27`，并通过 `IARCHIVER_XCODE_PATH` 固定
 3. 运行真实 C ABI 归档集成测试与 Swift 核心 XCTest。
 4. 分别构建 AppStore / Sideload 的 Release 设备和模拟器 App，保存 `.xcresult`。
 5. 检查实际设备可执行文件中的 UnRAR 差异、许可、隐私清单、设备族和最低系统。
-6. 在不高于构建 SDK 的 iOS 27 模拟器中选择 iPhone、iPad、Duo，两个版本分别执行 XCUITest。Xcode 27.1 对应普通 iPhone / iPad 的 27.0 runtime 和 Duo 的 27.1 runtime。先独立安装/启动未签名 Release App 并记录初始帧，再在独立构建目录用仅限模拟器的 ad hoc 签名运行 Release UI 测试，不需要开发者证书。初始帧可能仍是启动屏，界面就绪以 XCUITest 断言和 Browser / Settings 附件为准。测试核对文件列表、大屏左预览/右列表、设置打开与版本标识。任一类别缺失或断言失败都会使作业失败；安装或启动失败也保存模拟器服务日志。
-7. 仅在前述阶段全部成功后打包未签名产物。
+6. 三个独立 Apple 作业并行验证 iPhone、iPad、Duo，隔离 CoreSimulator 的进程、内存与磁盘状态；每台主机只运行一种机型，两版 App 各执行一次 Release XCUITest。不高于构建 SDK：普通 iPhone / iPad 使用 27.0 runtime，Duo 使用 27.1 runtime。Xcode 在独立构建目录对测试包进行仅限模拟器的 ad hoc 签名、安装和启动，不需要开发者证书。断言文件列表、大屏左预览/右列表、设置打开与实际版本值，保存 Browser / Settings 截图；缺少机型或任一断言失败都会使作业失败，并保留服务诊断。
+7. 构建作业通过带 SHA-256 和源提交校验的归档传递原始四个 App、dSYM、XCFramework，保留执行权限。UI 作业不会改写这些未签名产物。仅在 Windows 回归、Apple 构建/核心测试和三组机型作业全部成功后，独立打包作业才发布最终验证包。
 
 另一个 Windows 作业在 GitHub 的 `windows-2022` 机器编译两种原生引擎并运行跨平台回归。依赖缓存按 OS、CPU 架构、实际 Xcode 版本、锁文件、原生源码及构建/补丁脚本隔离。缓存恢复后仍进行源码哈希验证；桥接层每次调用 CMake 更新。
 
@@ -25,7 +25,9 @@ Apple 作业固定 `runs-on: xcode-27`，并通过 `IARCHIVER_XCODE_PATH` 固定
 | 名称 | 内容 |
 | --- | --- |
 | `unsigned-apple-builds` | 两种设备 IPA、arm64 模拟器 App ZIP、dSYM、XCFramework、SHA-256 与提交清单 |
-| `apple-diagnostics-*` | 工具链与编译日志、Swift 核心 XCTest 逐项日志、Release 构建结果、六份 UI 测试 `.xcresult`（含截图） |
+| `apple-build-diagnostics-*` | 工具链、原生/Swift 核心 XCTest 日志、四个 Release 构建结果 |
+| `apple-ui-diagnostics-iPhone-*` / `iPad-*` / `Duo-*` | 对应机型的两份 Release UI `.xcresult`、截图及服务诊断 |
+| `apple-build-inputs` | 同一次运行内传递的原始未签名构建目录与 SHA-256 / 提交清单；尚未代表 UI 验收通过 |
 | `windows-build-logs` | Windows 原生编译日志 |
 
 默认保留 14 天。失败运行也上传已有诊断；未完成或被取消的运行不能提供完整验证证据。

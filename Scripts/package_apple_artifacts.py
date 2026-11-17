@@ -54,7 +54,7 @@ def main():
         "They cannot be installed directly or submitted to App Store Connect in this form.\n"
         "Simulator ZIP files contain arm64 .app bundles. Unzip on an Apple silicon Mac and install with simctl.\n"
         "AppStore excludes UnRAR; Sideload includes it. Neither variant creates RAR.\n"
-        "See the Actions diagnostics artifact for XCTest results and simulator screenshots in .xcresult bundles.\n",
+        "See apple-build-diagnostics for core results and apple-ui-diagnostics per device family for Release UI results and screenshots.\n",
         encoding="utf-8")
     print(f"Packaged {len(products)} unsigned app products in {output}")
     if os.environ.get("GITHUB_STEP_SUMMARY"):

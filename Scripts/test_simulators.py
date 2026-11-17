@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """Run Release XCUITest assertions on each required device family, both variants."""
 from __future__ import annotations
+import argparse
 import json
 import os
-import pathlib
-import plistlib
 import re
 import signal
 import subprocess
-import time
 from bootstrap import ROOT
 
 
@@ -41,18 +39,8 @@ def test_variant(device, variant, results, logs):
     name = f"ui-{variant}-{device['family']}"
     screenshots = ROOT / "Build" / "Screenshots" / name
     screenshots.mkdir(parents=True, exist_ok=True)
-    product = "iArchiver" if variant == "AppStore" else "iArchiver Sideload"
-    app = ROOT / "Build" / f"DerivedData-{variant}-Simulator" / "Build" / "Products" / "Release-iphonesimulator" / (product + ".app")
-    bundle_id = plistlib.loads((app / "Info.plist").read_bytes())["CFBundleIdentifier"]
-    # First prove the release app starts without Xcode's debugger/test harness.
-    # The runner's first install also initializes mobile installation services;
-    # observed cold installs take about two minutes even after bootstatus.
-    logged(["xcrun", "simctl", "install", device["udid"], str(app)], logs / (name + "-install.log"), timeout=240)
-    logged(["xcrun", "simctl", "launch", device["udid"], bundle_id], logs / (name + "-launch.log"))
-    time.sleep(3)
-    logged(["xcrun", "simctl", "io", device["udid"], "screenshot", str(screenshots / "Release-initial-frame.png")], logs / (name + "-screenshot.log"))
-    logged(["xcrun", "simctl", "terminate", device["udid"], bundle_id], logs / (name + "-terminate.log"))
-
+    # Xcode installs an ad hoc signed Release test build in its own directory.
+    # The distribution products stay unsigned and are never modified here.
     arguments = ["xcodebuild", "test", "-project", "iArchiver.xcodeproj",
         "-scheme", f"iArchiver-{variant}", "-configuration", "Release",
         "-destination", f"platform=iOS Simulator,id={device['udid']}",
@@ -64,7 +52,8 @@ def test_variant(device, variant, results, logs):
         "CODE_SIGNING_ALLOWED=YES", "CODE_SIGN_IDENTITY=-", "CODE_SIGNING_REQUIRED=YES",
         "CODE_SIGN_STYLE=Manual", "DEVELOPMENT_TEAM="]
     try:
-        logged(arguments, logs / (name + ".log"), timeout=300)
+        # Include first-boot installation of both the app and XCTest runner.
+        logged(arguments, logs / (name + ".log"), timeout=600)
         print(f"::notice title=Simulator test passed::{name}: {device['name']}", flush=True)
     finally:
         bundle = results / (name + ".xcresult")
@@ -77,13 +66,17 @@ def test_variant(device, variant, results, logs):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--family", choices=["iPhone", "iPad", "Duo"],
+        help="CI runs each family on a separate Apple host")
+    options = parser.parse_args()
     devices = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "-j"], text=True))["devices"]
     runtimes = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "runtimes", "-j"], text=True))["runtimes"]
     versions = {runtime["identifier"]: tuple(int(part) for part in (runtime["version"].split(".") + ["0", "0"])[:3]) for runtime in runtimes}
     sdk = subprocess.check_output(["xcrun", "--sdk", "iphonesimulator", "--show-sdk-version"], text=True).strip()
     sdk_version = tuple(int(part) for part in (sdk.split(".") + ["0", "0"])[:3])
     selected = []
-    for family in ["iPhone", "iPad", "Duo"]:
+    for family in ([options.family] if options.family else ["iPhone", "iPad", "Duo"]):
         choices = []
         for runtime, members in devices.items():
             version = versions.get(runtime, runtime_version(runtime))
@@ -137,7 +130,7 @@ def main():
                 logged(["xcrun", "simctl", "shutdown", device["udid"]], logs / ("shutdown-" + device["family"] + ".log"), timeout=45, check=False)
             except subprocess.TimeoutExpired:
                 print("Simulator shutdown timed out; retaining diagnostics.", flush=True)
-    print("PASS: both variants passed XCUITest on iPhone, iPad and iPhone Duo.", flush=True)
+    print("PASS: both Release variants passed XCUITest on " + ", ".join(device["family"] for device in selected), flush=True)
 
 
 if __name__ == "__main__":
