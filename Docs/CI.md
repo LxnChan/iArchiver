@@ -25,7 +25,7 @@ Apple 作业固定 `runs-on: xcode-27`，并通过 `IARCHIVER_XCODE_PATH` 固定
 | 名称 | 内容 |
 | --- | --- |
 | `unsigned-apple-builds` | 两种设备 IPA、arm64 模拟器 App ZIP、dSYM、XCFramework、SHA-256 与提交清单 |
-| `apple-diagnostics-*` | 工具链与编译日志、Swift 核心 JUnit XML、Release 构建结果、六份 UI 测试 `.xcresult`（含截图） |
+| `apple-diagnostics-*` | 工具链与编译日志、Swift 核心 XCTest 逐项日志、Release 构建结果、六份 UI 测试 `.xcresult`（含截图） |
 | `windows-build-logs` | Windows 原生编译日志 |
 
 默认保留 14 天。失败运行也上传已有诊断；未完成或被取消的运行不能提供完整验证证据。

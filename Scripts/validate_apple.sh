@@ -25,7 +25,9 @@ case "$stage" in
   host-build) python3 -u Scripts/build_native.py ;;
   frameworks) python3 -u Scripts/build_native.py --apple ;;
   native-tests) logged native-tests python3 Tests/native/test_archive_core.py ;;
-  swift-tests) logged swift-tests swift test --xunit-output Build/TestResults/swift-core.xml ;;
+  # SwiftPM's xunit exporter currently emits only the empty Swift Testing suite
+  # for this XCTest package. Preserve XCTest's actual per-case log instead.
+  swift-tests) logged swift-tests swift test ;;
   apps)
     failed=0
     for variant in AppStore Sideload; do

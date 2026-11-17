@@ -34,7 +34,7 @@
 
 推送提交、打开 Pull Request 或在仓库 **Actions → Validate → Run workflow** 手动触发。无需本地 Mac；后续编译和测试都使用 Actions。默认 `macos-latest` 当前仍提供 Xcode 26，工作流明确指定 `xcode-27` 并检查 iOS 27.1+ SDK，缺失时直接失败。
 
-成功运行提供 `unsigned-apple-builds` 产物：两个版本的未签名设备 IPA、arm64 模拟器 App、调试符号、原生 XCFramework 与 SHA-256 清单。`apple-diagnostics-*` 包含日志、Swift 测试 XML、Xcode 测试结果与 UI 测试截图。**未签名 IPA 需自行签名，不能直接安装或上架。**
+成功运行提供 `unsigned-apple-builds` 产物：两个版本的未签名设备 IPA、arm64 模拟器 App、调试符号、原生 XCFramework 与 SHA-256 清单。`apple-diagnostics-*` 包含 Swift 核心 XCTest 逐项日志、Xcode 测试结果与 UI 测试截图。**未签名 IPA 需自行签名，不能直接安装或上架。**
 
 资源与工程生成可在 Windows 编辑环境执行；编译、类型检查和测试结果以实际 Actions 运行记录为准。以下 Mac 命令用于说明工作流内部步骤。
 
