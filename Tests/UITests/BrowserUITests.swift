@@ -11,17 +11,19 @@ final class BrowserUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
-        let files = app.descendants(matching: .any)["fileList"].firstMatch
+        let files = app.collectionViews["fileList"].firstMatch
         XCTAssertTrue(files.waitForExistence(timeout: 15), "File browser did not appear")
         XCTAssertTrue(app.buttons["moreActions"].isHittable)
 
         if app.windows.firstMatch.frame.width >= 720 {
-            let preview = app.descendants(matching: .any)["previewPane"].firstMatch
+            let preview = app.otherElements["previewPane"].firstMatch
             XCTAssertTrue(preview.exists, "Wide windows must show a preview")
-            XCTAssertLessThanOrEqual(preview.frame.maxX, files.frame.minX + 2,
+            let previewFrame = preview.frame
+            let filesFrame = files.frame
+            XCTAssertLessThanOrEqual(previewFrame.maxX, filesFrame.minX + 2,
                 "Wide layout must place preview left and files right")
-            XCTAssertGreaterThan(preview.frame.width, 100)
-            XCTAssertGreaterThan(files.frame.width, 100)
+            XCTAssertGreaterThan(previewFrame.width, 100)
+            XCTAssertGreaterThan(filesFrame.width, 100)
         }
         attachScreenshot("Browser")
 
