@@ -73,7 +73,7 @@ def prepare_picker_fixtures(device, variant, logs, name):
            logs / (name + "-install.log"), timeout=120)
     container = pathlib.Path(subprocess.check_output(
         ["xcrun", "simctl", "get_app_container", device["udid"], bundle_id, "data"],
-        text=True, timeout=30).strip())
+        text=True, timeout=120).strip())
     documents = container / "Documents"
     fixtures = documents / FIXTURE_DIRECTORY
     fixtures.mkdir(parents=True, exist_ok=True)

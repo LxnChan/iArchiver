@@ -43,11 +43,10 @@ final class BrowserUITests: XCTestCase {
         let app = launchBrowser()
         for _ in 0..<2 {
             app.buttons["importFiles"].tap()
-            let picker = app.descendants(matching: .any)["documentPicker"].firstMatch
+            let picker = app.otherElements["documentPicker"].firstMatch
             XCTAssertTrue(picker.waitForExistence(timeout: 15))
             tapPickerButton("Cancel", in: app)
-            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-                predicate: NSPredicate(format: "exists == false"), object: picker)], timeout: 15), .completed)
+            XCTAssertTrue(picker.waitForNonExistence(timeout: 15))
             XCTAssertTrue(app.buttons["importFiles"].isHittable)
             XCTAssertFalse(app.descendants(matching: .any)["taskProgress"].firstMatch.exists)
         }
@@ -56,17 +55,16 @@ final class BrowserUITests: XCTestCase {
     func testLargeLocalSevenZipPickerHandoffAndImport() throws {
         let app = launchBrowser()
         app.buttons["importFiles"].tap()
-        let picker = app.descendants(matching: .any)["documentPicker"].firstMatch
+        let picker = app.otherElements["documentPicker"].firstMatch
         XCTAssertTrue(picker.waitForExistence(timeout: 15))
         tapPickerItem("Picker Fixtures", in: app)
         tapPickerItem("iArchiver-CI-5GiB", in: app)
         attachScreenshot("LargeArchiveSelected")
         tapPickerButton("Open", in: app)
 
-        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"), object: picker)], timeout: 15), .completed,
+        XCTAssertTrue(picker.waitForNonExistence(timeout: 15),
             "Selecting a local 5 GiB 7z must close the picker before the app copies it")
-        let summary = app.descendants(matching: .any)["archiveSummary"].firstMatch
+        let summary = app.staticTexts["archiveSummary"].firstMatch
         XCTAssertTrue(summary.waitForExistence(timeout: 180),
             "The real 5 GiB sandbox import and archive-directory read must finish")
         XCTAssertTrue(app.buttons["Picker ready.txt"].waitForExistence(timeout: 5),
@@ -86,7 +84,8 @@ final class BrowserUITests: XCTestCase {
         // The provider's remote view can take time to start on a cold simulator.
         // Query a typed control from the app, without repeatedly enumerating
         // every descendant beneath a remote accessibility element in a waiter.
-        let button = app.navigationBars.buttons[name].firstMatch
+        // Duo places Cancel in its side toolbar instead of a navigation bar.
+        let button = app.buttons[name].firstMatch
         XCTAssertTrue(button.waitForExistence(timeout: 120), "Picker button \(name) did not appear")
         button.tap()
     }
